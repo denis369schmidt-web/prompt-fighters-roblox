@@ -12,8 +12,9 @@ jobs:
       LUNE: "0.8.9"
       SELENE: "0.27.1"
       STYLUA: "0.20.0"
+      LUAU_LSP: "1.32.1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install toolchain
         run: |
@@ -23,6 +24,9 @@ jobs:
           fetch "https://github.com/lune-org/lune/releases/download/v$LUNE/lune-$LUNE-linux-x86_64.zip"
           fetch "https://github.com/Kampfkarren/selene/releases/download/$SELENE/selene-$SELENE-linux.zip"
           fetch "https://github.com/JohnnyMorganz/StyLua/releases/download/v$STYLUA/stylua-linux-x86_64.zip"
+          fetch "https://github.com/JohnnyMorganz/luau-lsp/releases/download/$LUAU_LSP/luau-lsp-linux.zip"
+          curl -sSLf -o "$HOME/globalTypes.d.luau" \
+            "https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/$LUAU_LSP/scripts/globalTypes.d.luau"
           chmod +x "$HOME/bin"/*
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
@@ -30,7 +34,14 @@ jobs:
         run: stylua --check src tests scripts
 
       - name: Lint (Selene)
-        run: selene src tests scripts
+        run: |
+          selene src
+          selene --config selene.lune.toml tests scripts
+
+      - name: Type check (luau-lsp, Roblox types)
+        run: |
+          rojo sourcemap default.project.json -o sourcemap.json
+          luau-lsp analyze --definitions="$HOME/globalTypes.d.luau" --sourcemap=sourcemap.json src
 
       - name: Tests (Lune)
         run: lune run tests/run.luau

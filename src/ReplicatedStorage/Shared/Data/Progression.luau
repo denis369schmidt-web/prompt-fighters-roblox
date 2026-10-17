@@ -63,8 +63,9 @@ function Progression.grade(points: number): (string, number)
 end
 
 -- Daily (XP) and weekly (coins) challenges and the achievement list come from Godot (Generated/ProgressionData).
-Progression.DAILY_QUESTS =
-	ProgressionData.daily :: { [string]: { text: string, goal: number, xp: number, max: boolean? } }
+Progression.DAILY_QUESTS = (
+	ProgressionData.daily :: any
+) :: { [string]: { text: string, goal: number, xp: number, max: boolean? } }
 Progression.DAILY_QUESTS_PER_DAY = 3
 Progression.DAILY_ALL_BONUS_XP = 200
 Progression.WEEKLY_QUESTS = ProgressionData.weekly :: { [string]: { text: string, goal: number, coins: number } }

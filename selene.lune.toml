@@ -1,0 +1,5 @@
+# Lune scripts (tests/, scripts/): `selene --config selene.lune.toml tests scripts`
+std = "luau+lune"
+
+[lints]
+shadowing = "allow"

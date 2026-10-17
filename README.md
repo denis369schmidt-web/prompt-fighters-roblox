@@ -18,12 +18,13 @@ rokit install           # rojo, lune, selene, stylua, wally (Versionen in rokit.
 |---|---|
 | Tests (headless) | `lune run tests/run.luau` (Filter: `lune run tests/run.luau knockback`) |
 | Format prüfen | `stylua --check src tests scripts` |
-| Lint | `selene src tests scripts` |
+| Lint | `selene src` und `selene --config selene.lune.toml tests scripts` |
+| Typprüfung | `rojo sourcemap -o sourcemap.json` und `luau-lsp analyze --definitions=globalTypes.d.luau --sourcemap=sourcemap.json src` |
 | Place bauen | `rojo build -o build/PromptFighters.rbxl` und `lune run scripts/check-build.luau` |
 | Live-Sync nach Studio | `rojo serve`, dann im Rojo-Plugin in Studio „Connect“ |
 | Godot-Werte neu importieren | `python3 tools/import_godot.py <Godot-Repo>/godot/scripts`, danach `stylua src` |
 
-CI (`.github/workflows/ci.yml`) führt Format, Lint, Tests, Build und Build-Prüfung bei jedem Push aus.
+CI (`.github/workflows/ci.yml`) führt Format, Lint, Typprüfung, Tests, Build und Build-Prüfung bei jedem Push aus.
 
 ## Ordner
 

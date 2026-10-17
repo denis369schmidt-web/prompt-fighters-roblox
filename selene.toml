@@ -1,6 +1,6 @@
-std = "roblox+lune"
+# Game code (src/). Test and tool scripts run under Lune: see selene.lune.toml.
+std = "roblox"
 exclude = ["Packages/*", "ServerPackages/*"]
 
 [lints]
-# Data modules legitimately contain long literal tables and German text.
 shadowing = "allow"
