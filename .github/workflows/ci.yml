@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      ROJO: "7.4.4"
+      LUNE: "0.8.9"
+      SELENE: "0.27.1"
+      STYLUA: "0.20.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          mkdir -p "$HOME/bin"
+          fetch() { curl -sSLf -o /tmp/t.zip "$1" && unzip -o -q /tmp/t.zip -d "$HOME/bin"; }
+          fetch "https://github.com/rojo-rbx/rojo/releases/download/v$ROJO/rojo-$ROJO-linux-x86_64.zip"
+          fetch "https://github.com/lune-org/lune/releases/download/v$LUNE/lune-$LUNE-linux-x86_64.zip"
+          fetch "https://github.com/Kampfkarren/selene/releases/download/$SELENE/selene-$SELENE-linux.zip"
+          fetch "https://github.com/JohnnyMorganz/StyLua/releases/download/v$STYLUA/stylua-linux-x86_64.zip"
+          chmod +x "$HOME/bin"/*
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Format (StyLua)
+        run: stylua --check src tests scripts
+
+      - name: Lint (Selene)
+        run: selene src tests scripts
+
+      - name: Tests (Lune)
+        run: lune run tests/run.luau
+
+      - name: Build place (Rojo)
+        run: |
+          mkdir -p build
+          rojo build -o build/PromptFighters.rbxl
+          lune run scripts/check-build.luau build/PromptFighters.rbxl
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PromptFighters-place
+          path: build/PromptFighters.rbxl

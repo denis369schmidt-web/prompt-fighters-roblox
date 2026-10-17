@@ -1,0 +1,9 @@
+---
+base: luau
+name: lune
+globals:
+  # Globals the test runner (tests/run.luau) injects into spec files.
+  describe: {args: [{type: string}, {type: function}]}
+  it: {args: [{type: string}, {type: function}]}
+  expect: {args: [{type: any}]}
+  Shared: {any: true}

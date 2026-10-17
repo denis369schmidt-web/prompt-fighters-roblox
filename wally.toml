@@ -1,0 +1,9 @@
+[package]
+name = "denis369schmidt-web/prompt-fighters"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[server-dependencies]
+# Session-locked player data (successor of ProfileService). Used from Phase 3 on.
+ProfileStore = "lm-loleris/profile-store@1.0.3"

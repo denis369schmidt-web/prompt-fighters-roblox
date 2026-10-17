@@ -1,0 +1,6 @@
+std = "roblox+lune"
+exclude = ["Packages/*", "ServerPackages/*"]
+
+[lints]
+# Data modules legitimately contain long literal tables and German text.
+shadowing = "allow"
