@@ -17,3 +17,11 @@ Format: Datum, Entscheidung, Grund. Umkehrbare Standardentscheidungen, die ohne 
 | 2026-10-17 | 15 Kämpfer tragen `ipReview` in `Roster.luau`. | Godot-IDs zeigen, dass sie von bekannten Marken abgeleitet sind (siehe `docs/ASSET_LICENSES.md`). Neugestaltung vor Launch. |
 | 2026-10-17 | Abenteuer-Läufe mit gekaufter Rettung zählen nicht für die globale Bestenliste. | Sonst kauft man sich einen Platz in der Bestenliste (Pay-to-Win über die Hintertür). |
 | 2026-10-17 | „Premium Payouts“ aus der Spec ersetzt durch **Creator Rewards**. | Roblox hat Engagement-Based Payouts am 24.07.2025 abgeschaltet (siehe `roblox/roadmap.md`). |
+| 2026-10-17 | Treffer-Rückstoß nutzt die Godot-Angriffsformel (`Knockback.attack`), nicht die Explosionsformel aus Spec 4.4. | Spec 4.4 ist in Godot nur die Explosionsformel; Angriffe rechnen anders. Godot ist die Quelle. |
+| 2026-10-17 | Finisher wie in Godot: Letzter Stock verloren → 5 s Finish-Phase, Code innerhalb von 2 s eingeben. | Godot-Verhalten, getestet in `Simulation.spec`. Bildschirmtext „FINISHER!“ (eigene Formulierung, keine fremden Spielzitate). |
+| 2026-10-17 | Respawn-Unverwundbarkeit 2,0 s (Spec), Sudden Death bei Gleichstand: 150 % und 1 Leben (Spec). | Spec-Werte. |
+| 2026-10-17 | Signatur-Mechaniken, Items, Projektile, Gefahren, Mutatoren und Bosse kommen in späteren Phasen; Neutral-Spezial nutzt bis dahin den Basis-Spezialangriff. | Vertical Slice zuerst spielbar machen. |
+| 2026-10-17 | Vertical Slice: 1 bis 4 Spieler, freie Plätze füllen Bots (Stufe 4), 4 Kämpfer (VOLT NINJA, MAGMOR, JUBEI, LEPORA), Arena NEON-GASSE. | 4er-Chaos ist auf Roblox unterhaltsamer und clip-tauglicher als 1-gegen-1; leere Server fühlen sich nie leer an. |
+| 2026-10-17 | Snapshots 30/s per `UnreliableRemoteEvent`, Ereignisse zuverlässig; Client glättet Positionen. | Hält Bandbreite klein (Payload unter 900 Byte), verlorene Snapshots stören nicht. |
+| 2026-10-17 | Tastendrücke werden pro Tick gelatcht (`MatchRunner`). | Paket- und Tick-Takt sind nie synchron; ohne Latch gehen Sprünge verloren oder doppeln sich. |
+| 2026-10-17 | Spielfiguren in Phase 1 sind Platzhalter-Blöcke in Elementfarbe. | Eigene Modelle und Animationen kommen in Phase 4; Schnittstelle von `FighterView` bleibt gleich. |

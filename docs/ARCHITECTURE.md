@@ -33,7 +33,30 @@ Jest-kompatible Matcher, damit ein späterer Wechsel zu Jest-Lua keine Specs ums
 Godot rechnet in Metern. `Constants.METER = 3.57` Studs. Die Kampfsimulation rechnet intern weiter in Metern
 (so bleiben alle Godot-Werte und Tests vergleichbar) und rechnet erst bei der Darstellung in Studs um.
 
-## Geplante Services (ab Phase 1)
+## Kampf (ab Phase 1)
+
+```
+Client: InputController ──(Maske, Achse) 60/s──▶ Server: RemoteHub (Guard: Typen + Rate-Limit)
+                                                        │
+                                                        ▼
+                         MatchRunner (60-Hz-Akkumulator, gelatchte Tastendrücke, Bots für freie Slots)
+                                                        │  Command je Kämpfer und Tick
+                                                        ▼
+                         Simulation (Port von combat.gd, deterministisch, ohne Instanzen)
+                                                        │
+             Snapshot 30/s (unzuverlässig) ◀────────────┴────────────▶ MatchEvent (zuverlässig)
+                        │                                                     │
+Client: MatchState ─▶ FighterView (glättet), CameraController, Hud ◀──────────┘
+```
+
+- **Server-autoritativ:** Der Client schickt nur Tasten. Treffer, Schaden, KOs und Sieger entstehen nur in der Simulation.
+- **Bots = Spieler:** `Combat/Bot` erzeugt dieselben `Command`s wie ein Controller; ein Test prüft, dass jeder
+  Bot-Befehl verlustfrei durch `Input.encode`/`decode` passt.
+- **Determinismus:** Eigene Zufallsquelle (`Util/Rng`, mulberry32). Gleicher Seed + gleiche Eingaben = gleiches Match.
+  Das ermöglicht später Replays und Anti-Cheat-Prüfungen.
+- **Darstellung:** Kollision gibt es nur in der Simulation. Arena-Teile sind verankert und `CanCollide = false`.
+
+## Geplante Services (ab Phase 2)
 
 Server: MatchService, MatchmakingService, CombatService, DataService (ProfileStore), ShopService, ReceiptService,
 ProgressionService, QuestService, EventService, AnalyticsService, ModerationService (Textfilter), BotService.

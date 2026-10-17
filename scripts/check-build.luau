@@ -13,6 +13,13 @@ local expected = {
 	{ "ReplicatedStorage.Shared.Data.Generated.FighterKits", "ModuleScript" },
 	{ "ReplicatedStorage.Shared.Data.Products", "ModuleScript" },
 	{ "ReplicatedStorage.Shared.Combat.Knockback", "ModuleScript" },
+	{ "ReplicatedStorage.Shared.Combat.Simulation", "ModuleScript" },
+	{ "ReplicatedStorage.Shared.Combat.Bot", "ModuleScript" },
+	{ "ReplicatedStorage.Shared.Combat.MatchRunner", "ModuleScript" },
+	{ "ServerScriptService.Server.Match.MatchService", "ModuleScript" },
+	{ "ServerScriptService.Server.Net.RemoteHub", "ModuleScript" },
+	{ "StarterPlayer.StarterPlayerScripts.Client.Controllers.InputController", "ModuleScript" },
+	{ "StarterPlayer.StarterPlayerScripts.Client.UI.Hud", "ModuleScript" },
 	{ "ServerScriptService.Server.Main", "Script" },
 	{ "StarterPlayer.StarterPlayerScripts.Client.Main", "LocalScript" },
 }

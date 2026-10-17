@@ -30,6 +30,7 @@ function Knockback.hitstun(percent: number): number
 	return math.clamp(0.30 + percent * 0.002, 0.18, 0.70)
 end
 
+-- Explosion/blast hits (item explosions in combat.gd). Spec section 4.4 describes this curve.
 -- Applies one hit. `direction` is +1 (right) or -1 (left). `percent` is the target's percent before the hit.
 function Knockback.compute(
 	baseDamage: number,
@@ -80,6 +81,75 @@ function Knockback.throw(
 	end
 	local stun = math.clamp(0.32 + newPercent * 0.003, 0.25, 0.85)
 	return { damage = damage, percent = newPercent, vx = vx, vy = vy, hitstun = stun, airControlLock = stun * 0.7 }
+end
+
+export type AttackLaunch = {
+	vx: number,
+	vy: number,
+	impulse: number,
+	hitstun: number,
+	airControlLock: number,
+	angle: number,
+}
+
+-- Launch of a melee or special hit (combat.gd contact resolution). `percent` is the target's percent
+-- AFTER the damage was added. `superHit`: special with a full super meter. DI = held stick (diX, diY).
+function Knockback.attack(
+	damage: number,
+	push: number,
+	angle: number,
+	freeAngle: boolean,
+	hitstun: number,
+	percent: number,
+	weight: number,
+	vitality: number,
+	direction: number,
+	isSpecial: boolean,
+	superHit: boolean,
+	targetGrounded: boolean,
+	diX: number,
+	diY: number,
+	kbTakenMult: number?
+): AttackLaunch
+	local growth = percent * 0.024 + percent * damage * 0.0016
+	local deg = angle
+	if freeAngle then
+		deg = math.clamp(deg, -85, 89)
+		if deg < 0 and targetGrounded then
+			deg = 30 -- a meteor on the ground pops the target up
+		end
+	else
+		deg = math.clamp(deg, 15, 75)
+	end
+	local kind = if superHit then 1.35 elseif isSpecial then 1.15 else 1.0
+	local w = math.clamp(weight, 0.82, 1.45)
+	local impulse = (push * 4 + growth * 3.75) * kind / w
+	impulse = math.clamp(impulse * (kbTakenMult or 1) * Knockback.vitalityMult(vitality), 0.9, 19)
+
+	local rad = math.rad(deg)
+	local lx, ly = direction * math.cos(rad), math.sin(rad)
+	local diLen = math.sqrt(diX * diX + diY * diY)
+	if diLen > 0.3 and impulse > 3 then
+		-- Directional influence bends the launch by up to MAX_DI degrees.
+		local dot = math.clamp((diX * -ly + diY * lx) / diLen, -1, 1)
+		local turn = math.rad(Constants.MOVEMENT.maxDI) * dot
+		local c, s = math.cos(turn), math.sin(turn)
+		lx, ly = lx * c - ly * s, lx * s + ly * c
+	end
+	local stun = math.clamp(hitstun * (0.85 + percent * 0.005), 0.15, 0.85)
+	return {
+		vx = lx * impulse,
+		vy = ly * impulse,
+		impulse = impulse,
+		hitstun = stun,
+		airControlLock = stun * 0.65,
+		angle = deg,
+	}
+end
+
+-- Technique: clean hits deal more damage (15 is neutral, +1.2 % per point).
+function Knockback.techniqueMult(technique: number): number
+	return 1 + (technique - 15) * 0.012
 end
 
 -- Heavier vitality takes slightly less launch (combat.gd vitality_mult).

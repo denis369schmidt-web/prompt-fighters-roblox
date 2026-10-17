@@ -26,6 +26,23 @@ rokit install           # rojo, lune, selene, stylua, wally (Versionen in rokit.
 
 CI (`.github/workflows/ci.yml`) führt Format, Lint, Typprüfung, Tests, Build und Build-Prüfung bei jedem Push aus.
 
+## Anspielen (Phase 1)
+
+1. `rojo build -o build/PromptFighters.rbxl` und die Datei in Studio öffnen (oder `rojo serve` + Plugin).
+2. **Play** drücken, einen der vier Kämpfer wählen. Nach 6 s startet ein Match gegen Bots.
+3. Mehrspieler testen: Test → Clients and Servers → 2 bis 4 Spieler.
+
+| Aktion | Tastatur | Gamepad | Touch |
+|---|---|---|---|
+| Laufen | A/D, Pfeile | linker Stick | linke Bildschirmhälfte (Stick) |
+| Hoch / runter | W / S | Stick | Stick |
+| Springen | Leertaste | A | SPRUNG |
+| Angriff (halten = aufladen) | J | X | ANGRIFF |
+| Spezial | K | B | SPEZIAL |
+| Schild (+ Richtung = Ausweichen) | L oder Shift | L1/R1 | SCHILD |
+| Greifen | U | R2 | GREIFEN |
+| Smash | I | rechter Stick | SMASH |
+
 ## Ordner
 
 ```

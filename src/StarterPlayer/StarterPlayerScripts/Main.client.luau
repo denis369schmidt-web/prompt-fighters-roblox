@@ -1,8 +1,14 @@
 --!strict
--- Client entry point. Controllers (Input, Camera, HUD, VFX, Audio, Shop UI, Lobby UI) start here from Phase 1 on.
+-- Client entry point: match state from the server, then input, rendering, camera and HUD.
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MatchState = require(script.Parent.State.MatchState)
+local InputController = require(script.Parent.Controllers.InputController)
+local FighterView = require(script.Parent.Controllers.FighterView)
+local CameraController = require(script.Parent.Controllers.CameraController)
+local Hud = require(script.Parent.UI.Hud)
 
-local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Data"):WaitForChild("Constants"))
-
-print(`[PromptFighters] client ready, tick rate {Constants.TICK_RATE} Hz`)
+MatchState.start()
+InputController.start()
+FighterView.start()
+CameraController.start()
+Hud.start()

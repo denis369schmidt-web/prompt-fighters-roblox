@@ -1,5 +1,16 @@
 # Changelog
 
+## Phase 1: Kampfkern und Vertical Slice (2026-10-17)
+
+- `Combat/Simulation`: Kampfschleife aus `combat.gd` portiert (Laufen, Sprünge, Plattformen, Kanten, Schild, Parade,
+  Ausweichen, Greifen und Würfe, Smash-Aufladung, Combos, Super, Rüstung, Konter, Clash, KO und Respawn,
+  Finisher-Phase, Zeitablauf und Sudden Death).
+- `Combat/Bot`: 9 Stufen mit Reaktionszeit `22 - 2 * Stufe` + 0..3 Frames, Erholung, Kantenwache, Finisher-Eingabe.
+- `Combat/MatchRunner`, `Net/Guard`: fester 60-Hz-Takt, gelatchte Eingaben, Rate-Limits und Typprüfung für Remotes.
+- Roblox: MatchService (Lobby → Match → Ergebnis), Arena NEON-GASSE, Eingabe für Tastatur, Gamepad und Touch,
+  Kamera mit Zoom und Wackeln, HUD mit Prozent, Leben, Super, Timer und Bannern.
+- 76 Tests, darunter ein komplettes 4-Bot-Match und ein Determinismus-Test.
+
 ## Phase 0: Grundgerüst (2026-10-17)
 
 - Rojo-Projekt, Rokit-Toolchain, Wally-Manifest, StyLua, Selene, CI (Format, Lint, Tests, Build, Build-Prüfung).
