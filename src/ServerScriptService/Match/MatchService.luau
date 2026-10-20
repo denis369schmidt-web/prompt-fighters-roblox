@@ -13,6 +13,7 @@ local Fighters = require(ReplicatedStorage.Shared.Data.Fighters)
 local Visuals = require(ReplicatedStorage.Shared.Data.Visuals)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
+local RigFactory = require(script.Parent.Parent.World.RigFactory)
 
 local LOBBY_SECONDS = 6
 local RESULTS_SECONDS = 7
@@ -102,7 +103,6 @@ local function startMatch()
 		k += 1
 		table.insert(slots, { userId = nil, fighterId = pool[(roundSeed + k) % #pool + 1] })
 	end
-	ArenaBuilder.build(Visuals.SLICE_ARENA)
 	runner = MatchRunner.new({
 		slots = slots,
 		botLevel = BOT_LEVEL,
@@ -214,6 +214,7 @@ function MatchService.start()
 	end)
 	lobbyTimer = LOBBY_SECONDS
 	ArenaBuilder.build(Visuals.SLICE_ARENA)
+	RigFactory.publish(Visuals.SLICE_FIGHTERS)
 	RunService.Heartbeat:Connect(onHeartbeat)
 end
 

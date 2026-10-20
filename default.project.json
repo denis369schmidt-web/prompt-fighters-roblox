@@ -4,32 +4,59 @@
     "$className": "DataModel",
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
-      "Shared": { "$path": "src/ReplicatedStorage/Shared" },
-      "Packages": { "$path": { "optional": "Packages" } }
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
+      },
+      "Packages": {
+        "$path": {
+          "optional": "Packages"
+        }
+      }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "Server": { "$path": "src/ServerScriptService" },
-      "ServerPackages": { "$path": { "optional": "ServerPackages" } }
+      "Server": {
+        "$path": "src/ServerScriptService"
+      },
+      "ServerPackages": {
+        "$path": {
+          "optional": "ServerPackages"
+        }
+      }
     },
     "ServerStorage": {
       "$className": "ServerStorage",
-      "Assets": { "$path": "src/ServerStorage" }
+      "Assets": {
+        "$path": "src/ServerStorage"
+      }
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "Client": { "$path": "src/StarterPlayer/StarterPlayerScripts" }
+        "Client": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts"
+        }
       }
     },
     "Workspace": {
       "$className": "Workspace",
-      "$properties": { "StreamingEnabled": true }
+      "$properties": {
+        "StreamingEnabled": false
+      }
     },
     "Players": {
       "$className": "Players",
-      "$properties": { "CharacterAutoLoads": false }
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "Technology": "Future",
+        "ClockTime": 0
+      }
     }
   }
 }

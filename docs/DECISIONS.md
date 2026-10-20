@@ -25,3 +25,7 @@ Format: Datum, Entscheidung, Grund. Umkehrbare Standardentscheidungen, die ohne 
 | 2026-10-17 | Snapshots 30/s per `UnreliableRemoteEvent`, Ereignisse zuverlässig; Client glättet Positionen. | Hält Bandbreite klein (Payload unter 900 Byte), verlorene Snapshots stören nicht. |
 | 2026-10-17 | Tastendrücke werden pro Tick gelatcht (`MatchRunner`). | Paket- und Tick-Takt sind nie synchron; ohne Latch gehen Sprünge verloren oder doppeln sich. |
 | 2026-10-17 | Spielfiguren in Phase 1 sind Platzhalter-Blöcke in Elementfarbe. | Eigene Modelle und Animationen kommen in Phase 4; Schnittstelle von `FighterView` bleibt gleich. |
+| 2026-10-20 | `StreamingEnabled = false`. | Das Spiel nutzt keine Roblox-Spielfigur; mit Streaming kam die Arena nie beim Client an (erster Studio-Test). Die Arena ist klein genug für volles Laden. |
+| 2026-10-20 | Grafik vor Multiplayer gezogen (Entscheidung des Nutzers). Kämpfer sind R15-Figuren aus `HumanoidDescription` plus Ausrüstung aus einfachen Parts (`Data/Looks`, `World/RigFactory`). | Lesbare Figuren für Tests und erste Clips; keine Katalog- oder Fremd-Assets, also keine Lizenzfragen. |
+| 2026-10-20 | Animation prozedural (`Visual/Pose` setzt Gelenkwinkel), keine Animations-Assets. | Funktioniert sofort ohne hochgeladene Animationen, ist testbar und folgt exakt dem Simulationszustand. Echte Keyframe-Animationen können später pro Move ergänzt werden. |
+| 2026-10-20 | Lighting `Future`, Atmosphäre, Bloom, Farbkorrektur, Regen auf NEON-GASSE. | Neon-Look für Thumbnails und Clips. |
