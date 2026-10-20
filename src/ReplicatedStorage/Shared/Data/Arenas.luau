@@ -1,6 +1,8 @@
 --!strict
 -- Arenas. price = coins (0 = free). Owning an arena gives an extra vote in arena voting, never a combat edge.
 
+local Rng = require(script.Parent.Parent.Util.Rng)
+
 export type Arena = { id: string, name: string, price: number }
 
 local Arenas = {}
@@ -38,6 +40,52 @@ end
 -- Votes a player casts in arena voting: 1, +1 if they own the arena, +1 with VIP; never more than 3.
 function Arenas.voteWeight(ownsArena: boolean, isVip: boolean): number
 	return 1 + (if ownsArena then 1 else 0) + (if isVip then 1 else 0)
+end
+
+-- `count` different arenas for a lobby vote, drawn from `pool` (default: all arenas) with a seeded generator.
+function Arenas.voteOptions(seed: number, count: number, pool: { string }?): { string }
+	local ids: { string } = {}
+	if pool then
+		for _, id in pool do
+			table.insert(ids, id)
+		end
+	else
+		for _, arena in Arenas.list do
+			table.insert(ids, arena.id)
+		end
+	end
+	local rng = Rng.new(seed)
+	local out = {}
+	while #out < count and #ids > 0 do
+		table.insert(out, table.remove(ids, rng:int(1, #ids)) :: string)
+	end
+	return out
+end
+
+-- Weighted votes per option (votes maps a voter to { option index, weight }).
+function Arenas.tally(options: { string }, votes: { [any]: { index: number, weight: number } }): { number }
+	local totals = table.create(#options, 0)
+	for _, vote in votes do
+		if totals[vote.index] ~= nil then
+			totals[vote.index] += vote.weight
+		end
+	end
+	return totals
+end
+
+-- The winning option: most votes; a tie (or no votes at all) is decided by `roll` in [0, 1) among the leaders.
+function Arenas.winner(options: { string }, totals: { number }, roll: number): string
+	local best = -1
+	local leaders = {}
+	for i, total in totals do
+		if total > best then
+			best = total
+			leaders = { i }
+		elseif total == best then
+			table.insert(leaders, i)
+		end
+	end
+	return options[leaders[math.floor(roll * #leaders) + 1]]
 end
 
 return Arenas

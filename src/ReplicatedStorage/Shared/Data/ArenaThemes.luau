@@ -1,0 +1,166 @@
+--!strict
+-- Look of every arena, ported from the Godot backgrounds.gd table: a motif (what World/ArenaBuilder builds
+-- behind the stage), trim and accent neon colors, weather particles and a light tint. Same order as Data/Arenas.
+
+export type Theme = {
+	motif: string,
+	trim: string,
+	accent: string,
+	weather: string, -- rain, snow, embers, dust, fireflies
+	tint: { number }, -- r, g, b in 0..1 for ambient light and fog
+	variant: string?, -- graffiti, ruins, statues, storm, jungle, frozen, molten, future
+}
+
+return {
+	neon_alley = {
+		motif = "city_street",
+		trim = "#FF3DB4",
+		accent = "#22D3EE",
+		weather = "rain",
+		tint = { 0.5, 0.35, 0.7 },
+	},
+	moon_temple = {
+		motif = "temple",
+		trim = "#FFB13B",
+		accent = "#FF7A1A",
+		weather = "fireflies",
+		tint = { 0.6, 0.62, 0.8 },
+	},
+	holo_metropolis = {
+		motif = "scifi_city",
+		trim = "#38BDF8",
+		accent = "#F472B6",
+		weather = "dust",
+		tint = { 0.45, 0.6, 0.9 },
+	},
+	warehouse = {
+		motif = "industrial",
+		trim = "#F59E0B",
+		accent = "#84CC16",
+		weather = "dust",
+		tint = { 0.55, 0.5, 0.45 },
+	},
+	cyber_stadium = {
+		motif = "stadium",
+		trim = "#BAE6FD",
+		accent = "#FFFFFF",
+		weather = "dust",
+		tint = { 0.6, 0.7, 0.95 },
+		variant = "future",
+	},
+	orbital_ring = {
+		motif = "space",
+		trim = "#A78BFA",
+		accent = "#38BDF8",
+		weather = "fireflies",
+		tint = { 0.25, 0.25, 0.45 },
+	},
+	neon_skyline = {
+		motif = "city_roof",
+		trim = "#22D3EE",
+		accent = "#F472B6",
+		weather = "rain",
+		tint = { 0.4, 0.55, 0.75 },
+	},
+	colosseum = {
+		motif = "colosseum",
+		trim = "#FFD166",
+		accent = "#FF9245",
+		weather = "dust",
+		tint = { 1.0, 0.85, 0.65 },
+	},
+	aurora_peak = {
+		motif = "mountains",
+		trim = "#6EE7B7",
+		accent = "#A7F3D0",
+		weather = "snow",
+		tint = { 0.5, 0.65, 0.8 },
+	},
+	starship_hangar = {
+		motif = "space_interior",
+		trim = "#7DD3FC",
+		accent = "#F8FAFC",
+		weather = "dust",
+		tint = { 0.3, 0.35, 0.5 },
+	},
+	graffiti_alley = {
+		motif = "city_street",
+		trim = "#C084FC",
+		accent = "#F472B6",
+		weather = "rain",
+		tint = { 0.55, 0.35, 0.65 },
+		variant = "graffiti",
+	},
+	no_mans_land = { motif = "war", trim = "#94A3B8", accent = "#F97316", weather = "dust", tint = { 0.5, 0.52, 0.55 } },
+	sun_stadium = {
+		motif = "stadium",
+		trim = "#FB923C",
+		accent = "#FDE68A",
+		weather = "dust",
+		tint = { 1.0, 0.7, 0.5 },
+	},
+	rain_roof = {
+		motif = "city_roof",
+		trim = "#38BDF8",
+		accent = "#FB7185",
+		weather = "rain",
+		tint = { 0.35, 0.45, 0.6 },
+	},
+	dojo = { motif = "dojo", trim = "#F59E0B", accent = "#FDE68A", weather = "dust", tint = { 0.8, 0.6, 0.4 } },
+	night_market = {
+		motif = "city_street",
+		trim = "#FB7185",
+		accent = "#FBBF24",
+		weather = "rain",
+		tint = { 0.6, 0.4, 0.55 },
+	},
+	ruined_city = {
+		motif = "war",
+		trim = "#5EEAD4",
+		accent = "#94A3B8",
+		weather = "rain",
+		tint = { 0.45, 0.55, 0.52 },
+		variant = "ruins",
+	},
+	sun_arena = {
+		motif = "colosseum",
+		trim = "#FBBF24",
+		accent = "#FFEDD5",
+		weather = "dust",
+		tint = { 1.0, 0.8, 0.55 },
+		variant = "statues",
+	},
+	storm_roof = {
+		motif = "city_roof",
+		trim = "#60A5FA",
+		accent = "#EF4444",
+		weather = "rain",
+		tint = { 0.35, 0.4, 0.65 },
+		variant = "storm",
+	},
+	jungle_ruins = {
+		motif = "temple",
+		trim = "#4ADE80",
+		accent = "#2DD4BF",
+		weather = "fireflies",
+		tint = { 0.55, 0.75, 0.5 },
+		variant = "jungle",
+	},
+	ice_works = {
+		motif = "industrial",
+		trim = "#7DD3FC",
+		accent = "#E0F2FE",
+		weather = "snow",
+		tint = { 0.75, 0.85, 1.0 },
+		variant = "frozen",
+	},
+	foundry = { motif = "foundry", trim = "#F97316", accent = "#FDE047", weather = "embers", tint = { 0.7, 0.35, 0.2 } },
+	smelter = {
+		motif = "foundry",
+		trim = "#EF4444",
+		accent = "#FB923C",
+		weather = "embers",
+		tint = { 0.65, 0.3, 0.2 },
+		variant = "molten",
+	},
+} :: { [string]: Theme }

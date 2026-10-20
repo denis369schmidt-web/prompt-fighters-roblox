@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Arenas = require(Shared:WaitForChild("Data"):WaitForChild("Arenas"))
 local Constants = require(Shared:WaitForChild("Data"):WaitForChild("Constants"))
 local Fighters = require(Shared:WaitForChild("Data"):WaitForChild("Fighters"))
 local Visuals = require(Shared:WaitForChild("Data"):WaitForChild("Visuals"))
@@ -120,6 +121,8 @@ function Hud.start()
 		end
 	end
 
+	local setPickerOpen: (open: boolean) -> ()
+
 	-- Lobby: pick one of the launch fighters (8 x 2 grid that shrinks to the screen width).
 	local picker = Instance.new("Frame")
 	picker.Size = UDim2.new(0.96, 0, 0, 236)
@@ -159,8 +162,82 @@ function Hud.start()
 			for id, b in pickButtons do
 				(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Thickness = if id == fighterId then 5 else 0
 			end
+			-- Close the picker so the lobby is free to walk around in.
+			setPickerOpen(false)
 		end)
 		pickButtons[fighterId] = button
+	end
+
+	-- Lobby: arena vote buttons (same as standing on a pad) and the button that reopens the picker.
+	local voteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("VoteArena") :: RemoteEvent
+	local voteRow = Instance.new("Frame")
+	voteRow.BackgroundTransparency = 1
+	voteRow.Size = UDim2.fromOffset(220, 3 * 48)
+	voteRow.AnchorPoint = Vector2.new(1, 0)
+	voteRow.Position = UDim2.new(1, -12, 0, 80)
+	voteRow.Parent = gui
+	local voteLayout = Instance.new("UIListLayout")
+	voteLayout.Padding = UDim.new(0, 6)
+	voteLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	voteLayout.Parent = voteRow
+	local voteTitle = label(gui, "ARENA-WAHL", UDim2.fromOffset(220, 26), UDim2.new(1, -232, 0, 50))
+	local voteButtons: { TextButton } = {}
+	for k = 1, 3 do
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(1, 0, 0, 42)
+		b.LayoutOrder = k
+		b.BackgroundColor3 = Color3.fromRGB(24, 20, 44)
+		b.BackgroundTransparency = 0.15
+		b.Font = FONT
+		b.TextScaled = true
+		b.TextColor3 = Color3.new(1, 1, 1)
+		b.Text = ""
+		b.Parent = voteRow
+		corner(b, 8)
+		b.Activated:Connect(function()
+			local id = MatchState.options[k]
+			if id then
+				voteRemote:FireServer(id)
+			end
+		end)
+		voteButtons[k] = b
+	end
+
+	local pickerToggle = Instance.new("TextButton")
+	pickerToggle.Size = UDim2.fromOffset(220, 54)
+	pickerToggle.AnchorPoint = Vector2.new(0.5, 1)
+	pickerToggle.Position = UDim2.new(0.5, 0, 1, -16)
+	pickerToggle.BackgroundColor3 = Color3.fromRGB(255, 40, 200)
+	pickerToggle.Font = FONT
+	pickerToggle.TextScaled = true
+	pickerToggle.TextColor3 = Color3.new(1, 1, 1)
+	pickerToggle.Text = "KÄMPFER WÄHLEN"
+	pickerToggle.Visible = false
+	pickerToggle.Parent = gui
+	corner(pickerToggle, 12)
+	pickerToggle.Activated:Connect(function()
+		setPickerOpen(true)
+	end)
+
+	setPickerOpen = function(open: boolean)
+		local inLobby = MatchState.phase == "lobby"
+		picker.Visible = inLobby and open
+		pickerTitle.Visible = inLobby and open
+		pickerToggle.Visible = inLobby and not open
+		pickerToggle.Text = if chosen then `{Fighters.get(chosen :: string).name} · ÄNDERN` else "KÄMPFER WÄHLEN"
+	end
+
+	local function showVotes()
+		local inLobby = MatchState.phase == "lobby" and #MatchState.options > 0
+		voteRow.Visible = inLobby
+		voteTitle.Visible = inLobby
+		for k, b in voteButtons do
+			local id = MatchState.options[k]
+			local info = if id then Arenas.byId[id] else nil
+			local count = MatchState.votes[k] or 0
+			b.Visible = id ~= nil
+			b.Text = if info then `{info.name}  ·  {count}` else ""
+		end
 	end
 
 	-- Touch: big buttons on the right, a floating stick on the left half.
@@ -244,19 +321,26 @@ function Hud.start()
 		end)
 	end
 
+	local lastPhase = ""
 	MatchState.onEvent(function(event)
 		local t = event.type
 		if t == "phase" then
 			local inLobby = event.phase == "lobby"
-			picker.Visible = inLobby
-			pickerTitle.Visible = inLobby
+			-- The picker opens by itself only while no fighter is chosen.
+			setPickerOpen(inLobby and (chosen == nil or picker.Visible))
+			showVotes()
 			cardRow.Visible = not inLobby
 			touch.Visible = event.phase == "match" and MatchState.mySlot ~= nil and UserInputService.TouchEnabled
-			if event.phase == "match" then
+			if event.phase == "match" and lastPhase ~= "match" then
 				buildCards()
+				local info = Arenas.byId[event.arena or ""]
+				if info then
+					showBanner(info.name, "ARENA", 1.6)
+				end
 			end
+			lastPhase = event.phase
 			if inLobby then
-				timer.Text = if chosen then `START IN {math.ceil(event.timer)}` else ""
+				timer.Text = if chosen then `KAMPF IN {math.ceil(event.timer)}` else ""
 			end
 		elseif t == "go" then
 			showBanner("LOS!", nil, 0.8)

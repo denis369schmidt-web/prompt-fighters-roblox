@@ -1,5 +1,13 @@
 # Changelog
 
+## Lobby und 23 Arenen (2026-10-20)
+
+- Begehbare Lobby: Spieler laufen mit ihrem Avatar über einen Neon-Platz, die 16 Startkämpfer stehen als Statuen auf Sockeln, ein großer Bildschirm zeigt Countdown und Bereitschaft.
+- Arena-Abstimmung: drei zufällige Arenen pro Runde, abstimmen durch Draufstellen auf ein Feld oder per Knopf rechts oben. Die meisten Stimmen gewinnen, Gleichstand entscheidet der Zufall.
+- Countdown: 20 s ab der ersten Kämpferwahl, 8 s sobald alle gewählt haben. Während des Kampfs ist der Avatar eingefroren und die Kamera zeigt die Arena.
+- Alle 23 Arenen aus dem Original haben ein eigenes Aussehen (13 Stile): Neon-Straße, Dach, Holo-Stadt, Tempel, Dschungel, Dojo, Kolosseum, Stadion, Berge mit Polarlicht, Lagerhalle, Eiswerk, Gießerei mit Lavasee, Orbitalring, Raumschiff-Hangar, Niemandsland, Ruinenstadt. Eigenes Licht und Wetter (Regen, Schnee, Glut, Staub, Glühwürmchen).
+- Kämpferwahl schließt sich nach der Wahl und lässt sich mit einem Knopf wieder öffnen.
+
 ## 16 Startkämpfer mit eigenem Look (2026-10-20)
 
 - Kämpferwahl zeigt 16 Startkämpfer im 8×2-Raster: VOLT NINJA, MAGMOR, BOLTAR, KAIRO, GLACIEM, JUBEI, ZIP, LEPORA, CARDINAL, GRIMBOLT, TEMPLAR, SCARLET, CELESTIAL FOX, CYBORG MECH, NEKRA, DUSTY.

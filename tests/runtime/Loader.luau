@@ -11,6 +11,46 @@ local luau = require("@lune/luau")
 
 local Loader = {}
 
+-- A headless place for world-building modules (World/ArenaBuilder, World/LobbyBuilder): real Lune Instances for
+-- Workspace and Lighting, and ReplicatedStorage resolving to the mounted Shared folder.
+local place = roblox.Instance.new("DataModel")
+local services: { [string]: any } = {}
+Loader.workspace = place:GetService("Workspace")
+Loader.game = {
+	GetService = function(_, name: string): any
+		return services[name] or place:GetService(name)
+	end,
+}
+
+-- Roblox's Random, which Lune does not ship.
+local RandomShim = {}
+RandomShim.__index = RandomShim
+function RandomShim.new(seed: number?)
+	local state = math.floor(seed or 1) % 2147483647
+	if state <= 0 then
+		state += 2147483646
+	end
+	return setmetatable({ state = state }, RandomShim)
+end
+function RandomShim:NextNumber(lo: number?, hi: number?): number
+	self.state = (self.state * 16807) % 2147483647
+	local t = self.state / 2147483647
+	return (lo or 0) + ((hi or 1) - (lo or 0)) * t
+end
+function RandomShim:NextInteger(lo: number, hi: number): number
+	return lo + math.floor(self:NextNumber() * (hi - lo + 1))
+end
+
+-- Coroutine helpers are no-ops: world builders only use them for ambient loops (lightning).
+local taskStub = {
+	spawn = function() end,
+	delay = function() end,
+	defer = function() end,
+	wait = function()
+		return 0
+	end,
+}
+
 local cache: { [string]: any } = {}
 -- Lune's fs calls yield, and metamethods cannot yield, so the tree is scanned once up front.
 local dirs: { [string]: { string } } = {}
@@ -142,6 +182,18 @@ function requireNode(target: any): any
 			CFrame = roblox.CFrame,
 			Color3 = roblox.Color3,
 			Enum = roblox.Enum,
+			Vector2 = roblox.Vector2,
+			UDim = roblox.UDim,
+			UDim2 = roblox.UDim2,
+			NumberRange = roblox.NumberRange,
+			NumberSequence = roblox.NumberSequence,
+			NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+			ColorSequence = roblox.ColorSequence,
+			ColorSequenceKeypoint = roblox.ColorSequenceKeypoint,
+			Random = RandomShim,
+			game = Loader.game,
+			workspace = Loader.workspace,
+			task = taskStub,
 		},
 	})
 	local result = chunk()
@@ -154,6 +206,11 @@ end
 function Loader.mount(path: string): any
 	scan(path)
 	return node(path, true)
+end
+
+-- Makes game:GetService(name) return `value` (e.g. ReplicatedStorage -> { Shared = mounted folder }).
+function Loader.provide(name: string, value: any)
+	services[name] = value
 end
 
 Loader.require = requireNode

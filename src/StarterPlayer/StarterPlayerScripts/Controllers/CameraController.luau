@@ -1,7 +1,9 @@
 --!strict
 -- Side-view fight camera: frames every fighter still in the match, zooms out as they spread apart and
--- shakes on big hits. In the lobby it slowly pans across the arena.
+-- shakes on big hits. In the lobby the normal Roblox camera follows the player's avatar, and avatar controls are
+-- switched off while a match runs (the same keys drive the fighter then).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -26,6 +28,16 @@ end
 
 local function frame(dt: number)
 	local camera = workspace.CurrentCamera
+	local character = Players.LocalPlayer.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if MatchState.phase == "lobby" and humanoid then
+		if camera.CameraType ~= Enum.CameraType.Custom or camera.CameraSubject ~= humanoid then
+			camera.CameraType = Enum.CameraType.Custom
+			camera.CameraSubject = humanoid
+			camera.FieldOfView = 70
+		end
+		return
+	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.FieldOfView = 40
 	local snap = MatchState.snapshot
@@ -60,8 +72,29 @@ local function frame(dt: number)
 	camera.CFrame = CFrame.lookAt(eye, focus + jitter * 0.5)
 end
 
+local function avatarControls(enabled: boolean)
+	local scripts = Players.LocalPlayer:FindFirstChild("PlayerScripts")
+	local module = if scripts then scripts:FindFirstChild("PlayerModule") else nil
+	if module == nil or not module:IsA("ModuleScript") then
+		return
+	end
+	local ok, controls = pcall(function()
+		return (require(module) :: any):GetControls()
+	end)
+	if ok and controls then
+		if enabled then
+			controls:Enable()
+		else
+			controls:Disable()
+		end
+	end
+end
+
 function CameraController.start()
 	MatchState.onEvent(function(event)
+		if event.type == "phase" then
+			avatarControls(event.phase == "lobby")
+		end
 		if event.type == "hit" and (event.impulse or 0) > 9 then
 			CameraController.shake(math.clamp(event.impulse / 15, 0.3, 1.2))
 		elseif event.type == "ring_out" or event.type == "finisher" then

@@ -76,5 +76,7 @@ Visuals.SLICE_FIGHTERS = {
 	"dusty",
 }
 Visuals.SLICE_ARENA = "neon_alley"
+-- Lobby plaza center, far behind the camera side of the arena so neither is visible from the other.
+Visuals.LOBBY_ORIGIN = Vector3.new(0, 20, 1400)
 
 return Visuals

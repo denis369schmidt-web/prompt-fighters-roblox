@@ -17,6 +17,10 @@ local MatchState = {
 	previous = nil :: MatchRunner.NetSnapshot?,
 	snapshotAt = 0,
 	mySlot = nil :: number?,
+	arena = "",
+	-- lobby arena vote: three arena ids and their weighted votes
+	options = {} :: { string },
+	votes = {} :: { number },
 	-- projectile id -> latest position and size (meters)
 	shots = {} :: { [number]: { x: number, y: number, size: number } },
 	-- item id -> kind index, position and holder state (see Combat/Items.encode)
@@ -83,6 +87,9 @@ function MatchState.start()
 			if event.type == "phase" then
 				MatchState.phase = event.phase
 				MatchState.timer = event.timer
+				MatchState.arena = event.arena or MatchState.arena
+				MatchState.options = event.options or {}
+				MatchState.votes = event.votes or {}
 				if event.slots then
 					MatchState.slots = event.slots
 					MatchState.mySlot = nil

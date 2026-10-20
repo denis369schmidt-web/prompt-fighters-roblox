@@ -1,7 +1,7 @@
 --!strict
 -- Headless test runner for Lune: `lune run tests/run.luau [filter]`.
 -- Finds tests/*.spec.luau and runs them with a small Jest-style API (describe / it / expect).
--- Specs see `Shared` (ReplicatedStorage.Shared as fake Instances) and a `require` that accepts it.
+-- Specs see `Shared` and `Server` (source folders as fake Instances), `workspace`, and a `require` that accepts them.
 
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
@@ -36,6 +36,8 @@ local function it(name: string, body: () -> ())
 end
 
 local Shared = Loader.mount("src/ReplicatedStorage/Shared")
+local Server = Loader.mount("src/ServerScriptService")
+Loader.provide("ReplicatedStorage", { Shared = Shared })
 
 local specs = {}
 for _, entry in fs.readDir("tests") do
@@ -54,6 +56,9 @@ for _, spec in specs do
 			it = it,
 			expect = Expect.expect,
 			Shared = Shared,
+			Server = Server,
+			workspace = Loader.workspace,
+			Vector3 = require("@lune/roblox").Vector3,
 			require = Loader.require,
 		},
 	})
