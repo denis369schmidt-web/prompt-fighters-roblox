@@ -3,15 +3,18 @@
 -- The server runs one Simulation per match at 60 Hz and feeds it one Command per fighter per tick;
 -- players and bots go through exactly the same path. Units: meters, seconds, x right, y up, feet at y.
 --
--- Not ported yet (later phases): signature mechanics (the neutral special uses the base special for now),
--- weapon items, projectiles, hazards, mutators, bosses.
+-- Signature specials run in Combat/Signature, their projectiles in Combat/Projectiles.
+-- Not ported yet (later phases): weapon items, hazards, mutators, bosses.
 
 local Arena = require(script.Parent.Arena)
 local Input = require(script.Parent.Input)
 local Knockback = require(script.Parent.Knockback)
 local Moveset = require(script.Parent.Moveset)
+local Projectiles = require(script.Parent.Projectiles)
+local Signature = require(script.Parent.Signature)
 local Constants = require(script.Parent.Parent.Data.Constants)
 local Fighters = require(script.Parent.Parent.Data.Fighters)
+local SignatureParams = require(script.Parent.Parent.Data.Generated.SignatureParams)
 local Rng = require(script.Parent.Parent.Util.Rng)
 
 type Command = Input.Command
@@ -109,6 +112,39 @@ export type FighterState = {
 	rageTimer: number,
 	armorTimer: number,
 
+	-- signature specials (Combat/Signature)
+	sigParams: { [string]: any }?,
+	specialDamage: number,
+	specialPush: number,
+	specialHeld: boolean,
+	freezeTimer: number,
+	markedBy: number,
+	markTimer: number,
+	heat: number,
+	bulwark: number,
+	chainStage: number,
+	chainTimer: number,
+	turbo: number,
+	turboHitT: number,
+	eagle: number,
+	eagleStrikeT: number,
+	hoverT: number,
+	slam: boolean,
+	slamVx: number,
+	slamDmg: number,
+	dive: number,
+	iai: number,
+	volley: number,
+	volleyT: number,
+	hexT: number,
+	hexMult: number,
+	leashBy: number,
+	leashT: number,
+	leashLen: number,
+	crown: string,
+	sigCharge: number,
+	trailLastX: number,
+
 	grabTimer: number,
 	grabTarget: number?,
 	grabbedBy: number?,
@@ -146,6 +182,9 @@ export type MatchConfig = {
 
 export type Simulation = {
 	fighters: { FighterState },
+	projectiles: { Projectiles.Projectile },
+	projectileSerial: number,
+	queued: { Contact },
 	platforms: { Arena.Platform },
 	arenaId: string,
 	rng: Rng.Rng,
@@ -175,6 +214,8 @@ Sim.FINISH_TIME = FINISH_TIME
 local function newFighter(index: number, fighterId: string, team: number, stocks: number, isBot: boolean): FighterState
 	local def = Fighters.get(fighterId)
 	local phys: { [string]: number } = table.clone(def.phys :: any)
+	local sig = (SignatureParams :: any)[fighterId]
+	local baseSpecial = Moveset.baseAttacks(fighterId).special
 	return {
 		index = index,
 		team = team,
@@ -239,6 +280,38 @@ local function newFighter(index: number, fighterId: string, team: number, stocks
 		rageTimer = 0,
 		armorTimer = 0,
 
+		sigParams = sig,
+		specialDamage = baseSpecial.damage,
+		specialPush = baseSpecial.push,
+		specialHeld = false,
+		freezeTimer = 0,
+		markedBy = 0,
+		markTimer = 0,
+		heat = 0,
+		bulwark = 0,
+		chainStage = 0,
+		chainTimer = 0,
+		turbo = 0,
+		turboHitT = 0,
+		eagle = 0,
+		eagleStrikeT = 0,
+		hoverT = 0,
+		slam = false,
+		slamVx = 0,
+		slamDmg = 0,
+		dive = 0,
+		iai = 0,
+		volley = 0,
+		volleyT = 0,
+		hexT = 0,
+		hexMult = 1,
+		leashBy = 0,
+		leashT = 0,
+		leashLen = 0,
+		crown = if sig and sig.mech == "crown_shift" then "frost" else "",
+		sigCharge = 0,
+		trailLastX = 0,
+
 		grabTimer = 0,
 		grabTarget = nil,
 		grabbedBy = nil,
@@ -266,6 +339,9 @@ function Sim.new(config: MatchConfig): Simulation
 	local arenaId = config.arena or "neon_alley"
 	local self = setmetatable({
 		fighters = {},
+		projectiles = {},
+		projectileSerial = 0,
+		queued = {},
 		platforms = Arena.platformsFor(arenaId),
 		arenaId = arenaId,
 		rng = Rng.new(config.seed or 7919),
@@ -385,6 +461,7 @@ local function beginPending(self: Simulation, f: FighterState, a: Ability)
 		hitList = {},
 		rehitTimer = 0,
 	}
+	Signature.onBegin(f, a)
 	emit(self, { type = "attack", actor = f.index, key = a.key, name = a.name, special = a.special })
 end
 
@@ -412,6 +489,18 @@ local function startMove(self: Simulation, f: FighterState, key: string, charge:
 		a.push *= 1 + (c - 1) * 0.8
 	end
 	beginPending(self, f, a)
+	return true
+end
+
+-- Second press of a two-stage signature (tri slash, mark strike, recall ...). True when one started.
+local function startFollowup(self: Simulation, f: FighterState): boolean
+	local found = Signature.followup(self, f.index)
+	if found == nil then
+		return false
+	end
+	local follow = found :: Ability
+	f.cooldownSpecial = math.max(follow.cooldown, 0.4)
+	beginPending(self, f, follow)
 	return true
 end
 
@@ -834,6 +923,7 @@ local function respawnOrEliminate(self: Simulation, f: FighterState, index: numb
 		f.stun = 0
 		f.pending = nil
 		f.state = "Ready"
+		Signature.reset(f)
 		emit(self, { type = "ring_out", actor = index, lives = f.lives, x = koX, y = koY })
 		emit(self, { type = "respawn", actor = index })
 		return false
@@ -843,6 +933,7 @@ local function respawnOrEliminate(self: Simulation, f: FighterState, index: numb
 	f.state = "Defeated"
 	f.ledge = 0
 	f.pending = nil
+	Signature.reset(f)
 	emit(self, { type = "ring_out", actor = index, lives = 0, x = koX, y = koY })
 	emit(self, { type = "fighter_eliminated", actor = index })
 	return true
@@ -870,6 +961,19 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 		f.hitstop -= 1
 		return
 	end
+	f.specialHeld = inp.specialHeld
+	if f.freezeTimer > 0 then
+		-- Frozen in ice: no controls, and the hit stun lasts at least as long as the ice.
+		f.freezeTimer = math.max(0, f.freezeTimer - STEP)
+		f.walkV = 0
+		inp.axis, inp.jump, inp.standard, inp.special, inp.grab, inp.smash = 0, false, false, false, false, false
+		inp.shield, inp.shieldPressed, inp.sidePressed, inp.up, inp.down = false, false, 0, false, false
+		cmd = Input.idle()
+		if f.state == "HitStun" then
+			f.stun = math.max(f.stun, f.freezeTimer)
+		end
+	end
+	Signature.tick(self, i, f, STEP)
 
 	-- Timers
 	f.cooldownStandard = math.max(0, f.cooldownStandard - STEP)
@@ -962,7 +1066,7 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 	end
 
 	-- Launch velocity with friction
-	local speedScale = if f.rageTimer > 0 then 1.25 else 1
+	local speedScale = (if f.rageTimer > 0 then 1.25 else 1) * Signature.speedScale(f)
 	local friction = if f.grounded then (if f.slide > 0 then 8 else 26) else 6.5
 	if math.abs(f.vx) > 0.05 then
 		f.x += f.vx * STEP
@@ -1110,7 +1214,10 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 				initiateGrab(self, f)
 			elseif inp.special and not f.grounded then
 				-- Air special: up = steep recovery climb, down = dive, otherwise forward dash.
-				if inp.up and f.cooldownSpecial <= 0 and f.moves.uspecial then
+				local followed = not inp.up and not inp.down and startFollowup(self, f)
+				if followed then
+					f.blocking = false
+				elseif inp.up and f.cooldownSpecial <= 0 and f.moves.uspecial then
 					startMove(self, f, "uspecial")
 				else
 					airDash(self, f, axis, inp.down or inp.shield, inp.up)
@@ -1123,7 +1230,7 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 					startMove(self, f, "uspecial")
 				elseif inp.down then
 					startMove(self, f, "dspecial")
-				else
+				elseif not startFollowup(self, f) then
 					startMove(self, f, "nspecial")
 				end
 			elseif inp.standard or inp.smash then
@@ -1151,7 +1258,9 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 	-- Vertical physics and landing (platforms are one-way from below).
 	local prevY = f.y
 	if not f.grounded and f.state ~= "Grabbed" then
-		f.vy -= f.phys.gravity * STEP
+		local lift = Signature.flight(f, inp.jump, inp.up or inp.jumpHeld, inp.down, STEP)
+		f.vy -= f.phys.gravity * STEP * lift
+		Signature.afterGravity(f, STEP)
 		local nextY = f.y + f.vy * STEP
 		local landed = false
 		if f.vy <= 0 then
@@ -1184,6 +1293,11 @@ local function updateFighter(self: Simulation, i: number, f: FighterState, cmd: 
 			f.vy = 0
 			f.grounded = true
 			onLand(self, f)
+			if Signature.onLand(self, i, f) then
+				f.pending = nil
+				f.state = "Attack"
+				f.lockTimer = 0.3
+			end
 		else
 			f.y = nextY
 		end
@@ -1267,7 +1381,12 @@ local function resolveBodyPush(self: Simulation)
 	end
 end
 
-type Contact = { from: number, to: number, ability: Ability, special: boolean, pushDir: number? }
+type Contact = Projectiles.Contact
+
+-- Hit test of a shadow clone's copied attack: the move box from the clone's position.
+local function ghostTouches(x: number, y: number, facing: number, target: any, a: Ability): boolean
+	return touches({ x = x, y = y, facing = facing } :: any, target, a)
+end
 
 -- Advances every running move (windup -> active -> recovery) and collects the hits of active frames.
 local function advanceAttacks(self: Simulation): { Contact }
@@ -1277,9 +1396,11 @@ local function advanceAttacks(self: Simulation): { Contact }
 		if pending and f.hitstop <= 0 and f.state ~= "Defeated" then
 			pending.remaining -= STEP
 			local a = pending.ability
+			Signature.holdCharge(f, pending, f.specialHeld, STEP)
 			if pending.stage == "windup" and pending.remaining <= 0 then
 				pending.stage = "active"
 				pending.remaining = a.active
+				Signature.onActiveStart(self, i, a)
 				if a.blink then
 					f.x += f.facing * a.blink
 					if f.grounded and math.abs(f.y) < 0.01 then
@@ -1310,6 +1431,10 @@ local function advanceAttacks(self: Simulation): { Contact }
 				end
 			end
 			if pending.stage == "active" then
+				Signature.whileActive(self, i, f, pending, contacts)
+				if not a.noHit and not a.sig then
+					Signature.echoStrike(self, i, a, ghostTouches, contacts)
+				end
 				if a.rehit then
 					pending.rehitTimer += STEP
 					if pending.rehitTimer >= a.rehit then
@@ -1399,12 +1524,28 @@ local function resolveContacts(self: Simulation, contacts: { Contact })
 		if target.invulnerable > 0 or target.intangible > 0 then
 			continue
 		end
+		if target.bulwark > 0 then
+			-- Shield wall: hits from the front are stopped completely.
+			local srcX = contact.srcX or attacker.x
+			if math.abs(srcX - target.x) < 0.05 or sign(srcX - target.x) == target.facing then
+				emit(self, { type = "bulwark_block", actor = contact.to, target = contact.from })
+				if contact.srcX == nil then
+					attacker.vx = sign(attacker.x - target.x) * 3.5
+				end
+				attacker.hitstop = 3
+				continue
+			end
+		end
 		if target.counter > 0 and not (contact :: any).isCounter then
 			-- Counter stance: the attack is answered with a stronger strike.
 			target.counter = 0
 			local reply = table.clone(a)
 			reply.name = "Konter"
 			reply.damage = a.damage * 1.3 + 4
+			local own = target.pending
+			if own and own.ability.sig then
+				reply.damage *= Projectiles.num(own.ability.sig :: any, "dmg", 1)
+			end
 			reply.push = a.push * 1.4 + 0.3
 			reply.angle = 40
 			reply.hitstun = 0.35
@@ -1423,12 +1564,14 @@ local function resolveContacts(self: Simulation, contacts: { Contact })
 			continue
 		end
 
-		local isParry = target.blocking
+		local unblockable = a.unblockable == true
+		local isParry = not unblockable
+			and target.blocking
 			and target.parryTimer > 0
 			and not target.parryUsed
 			and target.grounded
 			and target.stun <= 0
-		local isBlocked = not isParry and target.blocking and target.grounded and target.stun <= 0
+		local isBlocked = not unblockable and not isParry and target.blocking and target.grounded and target.stun <= 0
 		local comboMult = COMBO_MULT[math.min(attacker.combo, #COMBO_MULT - 1) + 1]
 		local defense = Knockback.defenseMult(target.stats.defense)
 
@@ -1463,7 +1606,7 @@ local function resolveContacts(self: Simulation, contacts: { Contact })
 				attacker.super = 0
 				emit(self, { type = "super_used", actor = contact.from })
 			end
-			local rage = if attacker.rageTimer > 0 then 1.35 else 1
+			local rage = (if attacker.rageTimer > 0 then 1.35 else 1) * Signature.damageMult(attacker, target)
 			local damage = a.damage
 				* defense
 				* comboMult
@@ -1515,6 +1658,18 @@ local function resolveContacts(self: Simulation, contacts: { Contact })
 				target.inX,
 				target.inY
 			)
+			if a.kbScale then
+				-- One punch: knockback grows with the target's percent; past the threshold it is a sure KO.
+				local impulse = math.min(19, launch.impulse * (1 + target.percent / a.kbScale))
+				if target.percent >= (a.koAt or 999) then
+					impulse = 30
+					emit(self, { type = "one_punch_ko", actor = contact.from, target = contact.to })
+				end
+				local scale = impulse / math.max(0.01, launch.impulse)
+				launch.vx *= scale
+				launch.vy *= scale
+				launch.impulse = impulse
+			end
 			target.vx, target.vy = launch.vx, launch.vy
 			target.grounded = false
 			target.airDashUsed = false
@@ -1527,6 +1682,7 @@ local function resolveContacts(self: Simulation, contacts: { Contact })
 			target.walkV = 0
 			target.ledge = 0
 			target.airDodgeUsed = false
+			Signature.onHit(self, contact, damage)
 
 			attacker.combo += 1
 			attacker.bestCombo = math.max(attacker.bestCombo, attacker.combo)
@@ -1676,7 +1832,13 @@ function Sim.tick(self: Simulation, commands: { Command })
 	end
 
 	resolveBodyPush(self)
-	local contacts = advanceAttacks(self)
+	local contacts = self.queued
+	self.queued = {}
+	for _, c in advanceAttacks(self) do
+		table.insert(contacts, c)
+	end
+	Projectiles.update(self, STEP, contacts)
+	Signature.stateContacts(self, contacts)
 	contacts = resolveClashes(self, contacts)
 	resolveContacts(self, contacts)
 	checkOutcome(self, eliminatedNow)
@@ -1700,7 +1862,45 @@ export type FighterSnapshot = {
 	invulnerable: boolean,
 	grounded: boolean,
 	combo: number,
+	status: number, -- bit flags, see Sim.STATUS
 }
+
+-- Status flags for the renderer (ice, mark, eagle ...).
+Sim.STATUS = {
+	frozen = 1,
+	marked = 2,
+	eagle = 4,
+	turbo = 8,
+	rage = 16,
+	armor = 32,
+	bulwark = 64,
+	hexed = 128,
+	heatFull = 256,
+	charging = 512,
+	leashed = 1024,
+}
+
+local function statusOf(f: FighterState): number
+	local S = Sim.STATUS
+	local bits = 0
+	local function set(on: boolean, bit: number)
+		if on then
+			bits += bit
+		end
+	end
+	set(f.freezeTimer > 0, S.frozen)
+	set(f.markTimer > 0, S.marked)
+	set(f.eagle > 0, S.eagle)
+	set(f.turbo > 0, S.turbo)
+	set(f.rageTimer > 0, S.rage)
+	set(f.armorTimer > 0, S.armor)
+	set(f.bulwark > 0, S.bulwark)
+	set(f.hexT > 0, S.hexed)
+	set(f.heat >= Signature.HEAT_MAX, S.heatFull)
+	set(f.pending ~= nil and (f.pending :: Pending).ability.charge == true and f.specialHeld, S.charging)
+	set(f.leashT > 0, S.leashed)
+	return bits
+end
 
 function Sim.snapshot(self: Simulation): { FighterSnapshot }
 	local out = {}
@@ -1713,7 +1913,7 @@ function Sim.snapshot(self: Simulation): { FighterSnapshot }
 			vy = f.vy,
 			facing = f.facing,
 			state = f.state,
-			move = if pending then pending.key else nil,
+			move = if pending then (if pending.ability.sig then pending.ability.sig.mech else pending.key) else nil,
 			moveStage = if pending then pending.stage else nil,
 			percent = f.percent,
 			lives = f.lives,
@@ -1723,6 +1923,7 @@ function Sim.snapshot(self: Simulation): { FighterSnapshot }
 			invulnerable = f.invulnerable > 0,
 			grounded = f.grounded,
 			combo = f.combo,
+			status = statusOf(f),
 		})
 	end
 	return out

@@ -38,6 +38,46 @@ local NET_EVENTS = {
 	super_used = true,
 	ledge_grab = true,
 	throw = true,
+	-- signature specials
+	signature = true,
+	projectile = true,
+	projectile_end = true,
+	blast = true,
+	pool = true,
+	teleport = true,
+	marked = true,
+	iai_cut = true,
+	slam = true,
+	reflect = true,
+	wall_block = true,
+	catch = true,
+	stuck = true,
+	recall = true,
+	nova_launch = true,
+	clone_ready = true,
+	eagle_summon = true,
+	eagle_leave = true,
+	eagle_strike = true,
+	turbo_ram = true,
+	freeze_hit = true,
+	rebirth_heal = true,
+	war_horn = true,
+	crown_shift = true,
+	swap = true,
+	lasso = true,
+	yank = true,
+	hexed = true,
+	leashed = true,
+	anchor_zip = true,
+	bomb_stuck = true,
+	decoy = true,
+	heat_full = true,
+	one_punch_ko = true,
+	flashbang = true,
+	echo_strike = true,
+	soul_weigh = true,
+	bulwark_block = true,
+	counter = true,
 }
 
 local MatchService = {}
@@ -50,6 +90,7 @@ local resultsTimer = 0
 local selections: { [number]: string } = {}
 local runner: MatchRunner.Runner? = nil
 local lastSnapshotFrame = 0
+local hadShots = false
 local roundSeed = os.time() % 100000
 
 local function sliceAllowed(fighterId: string): boolean
@@ -168,6 +209,11 @@ local function onHeartbeat(dt: number)
 		if current.sim.frame - lastSnapshotFrame >= SNAPSHOT_EVERY then
 			lastSnapshotFrame = current.sim.frame
 			RemoteHub.fireAll("Snapshot", current:snapshot())
+			local shots = current:shots()
+			if #shots > 0 or hadShots then
+				RemoteHub.fireAll("Shots", shots)
+			end
+			hadShots = #shots > 0
 		end
 		if current.sim.result ~= nil then
 			RemoteHub.fireAll("Snapshot", current:snapshot())

@@ -1,5 +1,17 @@
 # Changelog
 
+## Signatur-Spezialangriffe (2026-10-20)
+
+- Alle 59 Signaturen aus Godot portiert (`Combat/Signature`, `Combat/Projectiles`, `Moveset.signatureAbility`): Geschosse
+  mit Zielsuche, Bumerang, Schwerkraft, Explosion, Lava-Pfützen, Feuerwände, Orbitalstrahl, Schneesturm, Pfeilregen,
+  Diener, Sternenhund, Schattendoppel, Fuchsfeuer, Geschütze, Minen, Haftbomben; Zustände Turbo, Adlerflug, Iaido,
+  Ki-Salve, Sprungbeben, Sturzflug, Schildwall, Eis, Fluch, Kette, Markierung, Hitze-Gauge mit Kernschmelze.
+- Zweistufige Signaturen: zweites Drücken von Spezial löst Folgeangriff aus (Drei-Welten-Schnitt, Blitzschlag zum
+  Markierten, Speer-Rückruf, Fuchsfeuer-Flug, Kernschmelze).
+- Client: `ProjectileView` zeichnet Geschosse, Pfützen, Wände, Wolken und Kreaturen; Eisblock, Adlerflügel, farbiges
+  Leuchten für Wut, Fluch, Rüstung und Markierung; Namen der Spezialangriffe, Teleport- und Iaido-Streifen.
+- Bots schätzen die Reichweite ihrer Signatur und nutzen Folgeangriffe.
+
 ## Grafik-Upgrade (2026-10-20)
 
 - Kämpfer als R15-förmige Figuren aus eigenen Parts mit eigenem Look: VOLT NINJA (Stirnband, Maske, Klingen), MAGMOR (Steinschultern,

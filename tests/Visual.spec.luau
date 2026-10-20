@@ -70,7 +70,10 @@ describe("Pose", function()
 							)
 							assert(math.abs(a.x) <= 180 and math.abs(a.z) <= 180, `{state}/{move}: {name} out of range`)
 						end
-						assert(finite(p.rootY) and finite(p.pitch) and finite(p.roll) and finite(p.spin))
+						assert(
+							finite(p.rootY) and finite(p.pitch) and finite(p.roll) and finite(p.spin),
+							"root not finite"
+						)
 						checked += 1
 					end
 				end

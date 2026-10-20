@@ -7,6 +7,7 @@
 local Arena = require(script.Parent.Arena)
 local Input = require(script.Parent.Input)
 local Moveset = require(script.Parent.Moveset)
+local Signature = require(script.Parent.Signature)
 local Simulation = require(script.Parent.Simulation)
 local Rng = require(script.Parent.Parent.Util.Rng)
 
@@ -73,15 +74,34 @@ local function sign(v: number): number
 	return if v > 0 then 1 elseif v < 0 then -1 else 0
 end
 
+-- How far a fighter's neutral special reaches: shots by speed and flight time, aimed signatures (rain,
+-- meteor, storm) from afar, melee signatures by their hitbox.
+local function signatureRange(a: Moveset.Ability): number
+	if a.sig == nil or not a.noHit then
+		return a.range
+	end
+	local sig = a.sig :: { [string]: any }
+	local speed = tonumber(sig.speed) or 0
+	local gravity = tonumber(sig.gravity) or 0
+	if speed > 0 and gravity > 0 then
+		local rise = tonumber(sig.rise) or 0
+		return math.clamp(speed * (2 * math.max(rise, 1) / gravity) + 0.5, 1.5, 8)
+	elseif speed > 0 and sig.life then
+		return math.clamp(speed * (tonumber(sig.life) or 1) * 0.8, 1.5, 8)
+	end
+	return 5
+end
+
 local function memoryFor(self: Brain, sim: Simulation, index: number): Memory
 	local mem = self.memory[index]
 	if not mem then
 		local base = Moveset.baseAttacks(sim.fighters[index].fighterId)
+		local specialRange = signatureRange(sim.fighters[index].moves.nspecial)
 		mem = {
 			t = 0,
 			plan = {},
 			standardRange = base.standard.range,
-			specialRange = base.special.range,
+			specialRange = specialRange,
 			finDo = nil,
 			finStep = 1,
 			finFrame = 0,
@@ -202,6 +222,12 @@ local function think(self: Brain, sim: Simulation, index: number, mem: Memory): 
 	end
 	if dy < -1 and f.y > 0.3 then
 		p.down = true
+		return p
+	end
+	-- Two-stage signatures: follow up (next cut, strike the mark, recall the spear ...).
+	if f.state == "Ready" and Signature.followup(sim, index) and rng:next() < 0.1 + lvl * 0.03 then
+		p.special = true
+		p.move = dir
 		return p
 	end
 	if adx <= reach * 0.95 and math.abs(dy) < 1.3 then

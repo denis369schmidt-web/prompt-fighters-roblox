@@ -119,6 +119,31 @@ describe("MatchRunner", function()
 		expect(decoded.fighters[2].state).toBe(f.state)
 	end)
 
+	it("sends projectile positions and status flags for the renderer", function()
+		local r = runner()
+		r.sim.fighters[2].freezeTimer = 1
+		r:setInput(
+			1,
+			maskOf(function(c)
+				c.special = true
+				c.specialHeld = true
+			end),
+			0
+		)
+		local shots = {}
+		for _ = 1, 40 do
+			r:step(STEP)
+			shots = r:shots()
+			if #shots > 0 then
+				break
+			end
+		end
+		expect(#shots % 4).toBe(0)
+		expect(#shots).toBeGreaterThan(0)
+		local decoded = MatchRunner.decode(r:snapshot())
+		expect(bit32.btest(decoded.fighters[2].status, 1)).toBe(true)
+	end)
+
 	it("finishes a match between one idle player and a bot", function()
 		local r = runner()
 		for _ = 1, 60 * 200 do

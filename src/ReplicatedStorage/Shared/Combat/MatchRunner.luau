@@ -8,6 +8,7 @@
 -- when packets and ticks don't line up.
 
 local Bot = require(script.Parent.Bot)
+local Projectiles = require(script.Parent.Projectiles)
 local Input = require(script.Parent.Input)
 local Simulation = require(script.Parent.Simulation)
 local Constants = require(script.Parent.Parent.Data.Constants)
@@ -38,6 +39,7 @@ export type Runner = {
 	dropPlayer: (self: Runner, userId: number) -> (),
 	step: (self: Runner, dt: number) -> ({ Simulation.Event }, number),
 	snapshot: (self: Runner) -> { any },
+	shots: (self: Runner) -> { number },
 }
 
 local MatchRunner = {}
@@ -167,6 +169,7 @@ function MatchRunner.snapshot(self: Runner): { any }
 			math.floor(s.shield),
 			(if s.blocking then 1 else 0) + (if s.invulnerable then 2 else 0) + (if s.grounded then 4 else 0),
 			s.combo,
+			s.status,
 		}
 	end
 	return {
@@ -195,6 +198,7 @@ export type NetFighter = {
 	invulnerable: boolean,
 	grounded: boolean,
 	combo: number,
+	status: number,
 }
 
 export type NetSnapshot = {
@@ -206,6 +210,23 @@ export type NetSnapshot = {
 	finishTimer: number,
 	fighters: { NetFighter },
 }
+
+MatchRunner.MAX_SHOTS = 24
+
+-- Projectile positions for the renderer: a flat { id, x, y, size, ... } list (sent unreliable like snapshots).
+function MatchRunner.shots(self: Runner): { number }
+	local out = {}
+	for k, pr in self.sim.projectiles do
+		if k > MatchRunner.MAX_SHOTS then
+			break
+		end
+		table.insert(out, pr.id)
+		table.insert(out, round2(pr.x))
+		table.insert(out, round2(pr.y))
+		table.insert(out, round2(pr.sizeNow or Projectiles.num(pr.spec, "size", 0.5)))
+	end
+	return out
+end
 
 -- Client side of snapshot(): turns the flat arrays back into named fields.
 function MatchRunner.decode(payload: { any }): NetSnapshot
@@ -227,6 +248,7 @@ function MatchRunner.decode(payload: { any }): NetSnapshot
 			invulnerable = bit32.btest(flags, 2),
 			grounded = bit32.btest(flags, 4),
 			combo = a[12],
+			status = a[13] or 0,
 		}
 	end
 	return {

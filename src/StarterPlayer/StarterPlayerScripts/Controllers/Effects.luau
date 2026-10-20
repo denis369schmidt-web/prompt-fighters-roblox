@@ -134,6 +134,55 @@ function Effects.damageNumber(position: Vector3, damage: number, color: Color3?)
 	Debris:AddItem(holder, 0.8)
 end
 
+-- Short floating word (MARKIERT!, KONTER! ...) in a given color.
+function Effects.label(position: Vector3, text: string, color: Color3)
+	local holder = anchor(position)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(150, 34)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.Parent = holder
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0
+	label.Parent = gui
+	TweenService
+		:Create(holder, TweenInfo.new(0.9, Enum.EasingStyle.Quad), { Position = position + Vector3.new(0, 3, 0) })
+		:Play()
+	TweenService:Create(
+		label,
+		TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ TextTransparency = 1, TextStrokeTransparency = 1 }
+	):Play()
+	Debris:AddItem(holder, 1)
+end
+
+-- Glowing streak between two points that fades (teleports, iaido cuts, chains).
+function Effects.streak(from: Vector3, to: Vector3, color: Color3, width: number, duration: number?)
+	local length = (to - from).Magnitude
+	if length < 0.05 then
+		return
+	end
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Material = Enum.Material.Neon
+	p.Color = color
+	p.Size = Vector3.new(width, width, length)
+	p.CFrame = CFrame.lookAt((from + to) / 2, to)
+	p.Parent = container()
+	local info = TweenInfo.new(duration or 0.3, Enum.EasingStyle.Quad)
+	TweenService:Create(p, info, { Transparency = 1, Size = Vector3.new(width * 0.2, width * 0.2, length) }):Play()
+	Debris:AddItem(p, (duration or 0.3) + 0.05)
+end
+
 -- KO: blast at the blast zone, ring, sparks and a short white screen flash.
 function Effects.knockout(position: Vector3, color: Color3)
 	Effects.flashBall(position, color, 45, 0.6)

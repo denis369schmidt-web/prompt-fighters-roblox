@@ -13,6 +13,7 @@ local Looks = require(Shared:WaitForChild("Data"):WaitForChild("Looks"))
 local Pose = require(Shared:WaitForChild("Visual"):WaitForChild("Pose"))
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
+local Simulation = require(Shared:WaitForChild("Combat"):WaitForChild("Simulation"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local Effects = require(script.Parent.Effects)
 
@@ -46,7 +47,15 @@ type View = {
 	highlight: Highlight,
 	label: TextLabel,
 	flash: number,
+	ice: Part,
+	wings: { Part },
 }
+
+local STATUS = Simulation.STATUS
+local ICE = Color3.fromRGB(150, 220, 255)
+local GOLD = Color3.fromRGB(255, 210, 90)
+local HEX = Color3.fromRGB(170, 80, 255)
+local RAGE = Color3.fromRGB(255, 60, 40)
 
 local FighterView = {}
 
@@ -131,6 +140,35 @@ local function build()
 		shield.CanTouch = false
 		shield.Parent = model
 
+		-- Ice block while frozen, eagle wings while flying.
+		local ice = Instance.new("Part")
+		ice.Name = "Ice"
+		ice.Size = Vector3.new(4.2, 7.5, 3.2)
+		ice.Material = Enum.Material.Glass
+		ice.Color = ICE
+		ice.Transparency = 1
+		ice.Anchored = true
+		ice.CanCollide = false
+		ice.CanQuery = false
+		ice.CanTouch = false
+		ice.Parent = model
+		local wings = {}
+		for side = -1, 1, 2 do
+			local wing = Instance.new("Part")
+			wing.Name = "Wing"
+			wing.Size = Vector3.new(0.2, 1.4, 4.5)
+			wing.Material = Enum.Material.Neon
+			wing.Color = GOLD
+			wing.Transparency = 1
+			wing.Anchored = true
+			wing.CanCollide = false
+			wing.CanQuery = false
+			wing.CanTouch = false
+			wing:SetAttribute("Side", side)
+			wing.Parent = model
+			table.insert(wings, wing)
+		end
+
 		local highlight = Instance.new("Highlight")
 		highlight.FillTransparency = 1
 		highlight.OutlineColor = slotColor
@@ -183,13 +221,15 @@ local function build()
 			highlight = highlight,
 			label = label,
 			flash = 0,
+			ice = ice,
+			wings = wings,
 		}
 	end
 end
 
 local function setVisible(view: View, visible: boolean)
 	for _, d in view.model:GetDescendants() do
-		if d:IsA("BasePart") and d ~= view.root and d.Name ~= "Shield" then
+		if d:IsA("BasePart") and d ~= view.root and d.Name ~= "Shield" and d.Name ~= "Ice" and d.Name ~= "Wing" then
 			d.LocalTransparencyModifier = if visible then 0 else 1
 		elseif d:IsA("Decal") then
 			d.Transparency = if visible then 0 else 1
@@ -263,9 +303,44 @@ local function render(dt: number)
 		end
 		view.tumble.Enabled = f.state == "HitStun" and speed > 8
 
+		-- Status: ice, wings, and a colored glow for rage, curse, armor, mark and a full heat gauge.
+		local status = f.status or 0
+		local function has(bit: number): boolean
+			return bit32.btest(status, bit)
+		end
+		view.ice.Transparency = if has(STATUS.frozen) and alive then 0.35 else 1
+		view.ice.CFrame = CFrame.new(view.position + Vector3.new(0, view.ice.Size.Y / 2, 0))
+		local flying = has(STATUS.eagle) and alive
+		local flap = math.sin(t * 14) * 0.5
+		for _, wing in view.wings do
+			local side = wing:GetAttribute("Side") :: number
+			wing.Transparency = if flying then 0.15 else 1
+			wing.CFrame = view.root.CFrame
+				* CFrame.new(side * 1.6, 1.4, 0.6)
+				* CFrame.Angles(0, 0, side * (0.5 + flap))
+				* CFrame.new(side * 1.4, 0, 0)
+		end
 		view.flash = math.max(0, view.flash - dt)
-		view.highlight.FillTransparency = if view.flash > 0 then 0.2 else 1
-		view.highlight.FillColor = Color3.new(1, 1, 1)
+		local fill, fillT = Color3.new(1, 1, 1), 1
+		if view.flash > 0 then
+			fill, fillT = Color3.new(1, 1, 1), 0.2
+		elseif has(STATUS.frozen) then
+			fill, fillT = ICE, 0.4
+		elseif has(STATUS.hexed) then
+			fill, fillT = HEX, 0.55
+		elseif has(STATUS.rage) then
+			fill, fillT = RAGE, 0.6
+		elseif has(STATUS.heatFull) then
+			fill, fillT = Color3.fromRGB(255, 110, 30), if blink then 0.5 else 0.75
+		elseif has(STATUS.charging) then
+			fill, fillT = view.glow, 0.5 + math.sin(t * 20) * 0.2
+		elseif has(STATUS.marked) then
+			fill, fillT = Color3.fromRGB(120, 230, 255), if blink then 0.55 else 0.85
+		end
+		view.highlight.FillColor = fill
+		view.highlight.FillTransparency = fillT
+		local armored = has(STATUS.armor) or has(STATUS.bulwark) or has(STATUS.turbo)
+		view.highlight.OutlineColor = if armored then GOLD else view.label.TextColor3
 	end
 end
 
@@ -327,7 +402,84 @@ function FighterView.start()
 			if view then
 				Effects.flashBall(chest(view), view.glow, 12, 0.35)
 			end
-		elseif kind == "finisher" then
+		elseif kind == "signature" then
+			local view = views[event.actor]
+			if view then
+				local color = if type(event.color) == "string" then Color3.fromHex(event.color) else view.glow
+				Effects.flashBall(chest(view), color, 4, 0.2)
+				if event.name and event.name ~= "" then
+					Effects.label(chest(view) + Vector3.new(0, 4.5, 0), event.name, color)
+				end
+			end
+		elseif kind == "teleport" or kind == "decoy" then
+			local view = views[event.actor]
+			if view and event.fromX then
+				local from = FighterView.toWorld(event.fromX, event.fromY) + Vector3.new(0, view.standHeight, 0)
+				Effects.flashBall(from, view.glow, 6, 0.25)
+				Effects.streak(from, chest(view), view.glow, 0.6, 0.25)
+			end
+		elseif kind == "iai_cut" then
+			local view = views[event.actor]
+			if view then
+				local from = FighterView.toWorld(event.fromX, event.y) + Vector3.new(0, view.standHeight + 0.5, 0)
+				Effects.streak(from, chest(view), Color3.new(1, 1, 1), 1, 0.35)
+				Effects.screenFlash(Color3.new(1, 1, 1), 0.12)
+			end
+		elseif kind == "slam" then
+			local p = FighterView.toWorld(event.x, event.y)
+			local color = if type(event.color) == "string" then Color3.fromHex(event.color) else GOLD
+			Effects.ring(p + Vector3.new(0, 0.5, 0), color, (event.radius or 6) * M * 2, 0.45)
+			Effects.sparks(p, color, 40, 45)
+		elseif kind == "swap" or kind == "yank" or kind == "lasso" then
+			local a, b = views[event.actor], views[event.target]
+			if a and b then
+				Effects.streak(chest(a), chest(b), a.glow, 0.4, 0.3)
+			end
+		elseif kind == "flashbang" then
+			Effects.screenFlash(Color3.new(1, 1, 1), 0.5)
+		elseif kind == "war_horn" then
+			local view = views[event.actor]
+			if view then
+				Effects.ring(chest(view), GOLD, 30, 0.5)
+			end
+		else
+			local words = {
+				marked = "MARKIERT",
+				freeze_hit = "EINGEFROREN",
+				counter = "KONTER!",
+				reflect = "ZURÜCK!",
+				bulwark_block = "GEBLOCKT",
+				heat_full = "KERNSCHMELZE BEREIT",
+				one_punch_ko = "EIN SCHLAG!",
+				hexed = "VERFLUCHT",
+				leashed = "ANGEKETTET",
+				crown_shift = "ELEMENTWECHSEL",
+				catch = "GEFANGEN",
+			}
+			local word = words[kind]
+			local who = if kind == "marked"
+					or kind == "freeze_hit"
+					or kind == "hexed"
+					or kind == "leashed"
+				then views[event.target]
+				else views[event.actor]
+			if word and who then
+				Effects.label(chest(who) + Vector3.new(0, 3.5, 0), word, who.glow)
+			elseif kind == "rebirth_heal" and views[event.actor] then
+				local view = views[event.actor]
+				Effects.label(
+					chest(view) + Vector3.new(0, 3.5, 0),
+					`-{math.floor(event.amount or 0)} %`,
+					Color3.fromRGB(120, 255, 140)
+				)
+				Effects.flashBall(chest(view), Color3.fromRGB(255, 160, 60), 10, 0.4)
+			elseif (kind == "eagle_strike" or kind == "turbo_ram" or kind == "echo_strike") and views[event.actor] then
+				local view = views[event.actor]
+				local target = views[event.target]
+				Effects.sparks(if target then chest(target) else chest(view), view.glow, 14, 25)
+			end
+		end
+		if kind == "finisher" then
 			local view = views[event.target]
 			if view then
 				Effects.knockout(chest(view), views[event.actor] and views[event.actor].glow or view.glow)
