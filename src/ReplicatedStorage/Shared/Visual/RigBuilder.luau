@@ -1,14 +1,12 @@
 --!strict
--- Builds one display rig per fighter: a standard R15 body from a HumanoidDescription (colors, proportions) plus
--- gear made from plain parts (Data/Looks). Rigs go to ReplicatedStorage.FighterRigs; every client clones and
--- animates its own copies (Visual/Pose), the server never moves them. No catalog or third-party assets.
+-- Builds a fighter's display rig entirely from plain Parts: an R15-shaped body (same part and Motor6D names as
+-- a Roblox R15 character, so Visual/Pose drives it) plus gear from Data/Looks. Nothing is fetched from the
+-- asset service, so rigs render the same in an unpublished Studio place, a live server and on every device.
+-- Runs on the client; each client builds its own copies.
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
+local Looks = require(script.Parent.Parent.Data.Looks)
 
-local Looks = require(ReplicatedStorage.Shared.Data.Looks)
-
-local RigFactory = {}
+local RigBuilder = {}
 
 local function color(hex: string): Color3
 	return Color3.fromHex(hex)
@@ -396,99 +394,163 @@ local GEAR: { [string]: (model: Model, look: Looks.Look) -> () } = {
 		)
 	end,
 }
-RigFactory.GEAR = GEAR
 
-local function addGlowEyes(model: Model, look: Looks.Look)
-	if model:FindFirstChild("Head") == nil then
-		return
-	end
-	local face = (model:FindFirstChild("Head") :: Instance):FindFirstChildOfClass("Decal")
-	if face then
-		face:Destroy()
-	end
+RigBuilder.GEAR = GEAR
+
+-- Body layout at scale 1 (studs, rig faces -Z, feet at y = 0): name, size, center, color slot.
+type PartSpec = { name: string, size: Vector3, center: Vector3, slot: string }
+local BODY: { PartSpec } = {
+	{ name = "LowerTorso", size = Vector3.new(2, 0.8, 1), center = Vector3.new(0, 3.1, 0), slot = "primary" },
+	{ name = "UpperTorso", size = Vector3.new(2, 1.6, 1), center = Vector3.new(0, 4.3, 0), slot = "primary" },
+	{ name = "Head", size = Vector3.new(1.2, 1.2, 1.2), center = Vector3.new(0, 5.8, 0), slot = "skin" },
+	{ name = "LeftUpperArm", size = Vector3.new(0.9, 1.2, 0.9), center = Vector3.new(-1.5, 4.5, 0), slot = "primary" },
+	{ name = "LeftLowerArm", size = Vector3.new(0.8, 1.1, 0.8), center = Vector3.new(-1.5, 3.35, 0), slot = "primary" },
+	{ name = "LeftHand", size = Vector3.new(0.8, 0.5, 0.8), center = Vector3.new(-1.5, 2.55, 0), slot = "skin" },
+	{ name = "RightUpperArm", size = Vector3.new(0.9, 1.2, 0.9), center = Vector3.new(1.5, 4.5, 0), slot = "primary" },
+	{ name = "RightLowerArm", size = Vector3.new(0.8, 1.1, 0.8), center = Vector3.new(1.5, 3.35, 0), slot = "primary" },
+	{ name = "RightHand", size = Vector3.new(0.8, 0.5, 0.8), center = Vector3.new(1.5, 2.55, 0), slot = "skin" },
+	{
+		name = "LeftUpperLeg",
+		size = Vector3.new(0.95, 1.2, 0.95),
+		center = Vector3.new(-0.5, 2.1, 0),
+		slot = "secondary",
+	},
+	{
+		name = "LeftLowerLeg",
+		size = Vector3.new(0.85, 1.2, 0.85),
+		center = Vector3.new(-0.5, 0.9, 0),
+		slot = "secondary",
+	},
+	{
+		name = "LeftFoot",
+		size = Vector3.new(0.9, 0.3, 1.2),
+		center = Vector3.new(-0.5, 0.15, -0.1),
+		slot = "secondary",
+	},
+	{
+		name = "RightUpperLeg",
+		size = Vector3.new(0.95, 1.2, 0.95),
+		center = Vector3.new(0.5, 2.1, 0),
+		slot = "secondary",
+	},
+	{
+		name = "RightLowerLeg",
+		size = Vector3.new(0.85, 1.2, 0.85),
+		center = Vector3.new(0.5, 0.9, 0),
+		slot = "secondary",
+	},
+	{
+		name = "RightFoot",
+		size = Vector3.new(0.9, 0.3, 1.2),
+		center = Vector3.new(0.5, 0.15, -0.1),
+		slot = "secondary",
+	},
+}
+
+-- Joints: name, parent part, child part, pivot (scale-1 coordinates).
+type JointSpec = { name: string, from: string, to: string, pivot: Vector3 }
+local JOINTS: { JointSpec } = {
+	{ name = "Root", from = "HumanoidRootPart", to = "LowerTorso", pivot = Vector3.new(0, 3.1, 0) },
+	{ name = "Waist", from = "LowerTorso", to = "UpperTorso", pivot = Vector3.new(0, 3.5, 0) },
+	{ name = "Neck", from = "UpperTorso", to = "Head", pivot = Vector3.new(0, 5.15, 0) },
+	{ name = "LeftShoulder", from = "UpperTorso", to = "LeftUpperArm", pivot = Vector3.new(-1.5, 5, 0) },
+	{ name = "LeftElbow", from = "LeftUpperArm", to = "LeftLowerArm", pivot = Vector3.new(-1.5, 3.9, 0) },
+	{ name = "LeftWrist", from = "LeftLowerArm", to = "LeftHand", pivot = Vector3.new(-1.5, 2.8, 0) },
+	{ name = "RightShoulder", from = "UpperTorso", to = "RightUpperArm", pivot = Vector3.new(1.5, 5, 0) },
+	{ name = "RightElbow", from = "RightUpperArm", to = "RightLowerArm", pivot = Vector3.new(1.5, 3.9, 0) },
+	{ name = "RightWrist", from = "RightLowerArm", to = "RightHand", pivot = Vector3.new(1.5, 2.8, 0) },
+	{ name = "LeftHip", from = "LowerTorso", to = "LeftUpperLeg", pivot = Vector3.new(-0.5, 2.7, 0) },
+	{ name = "LeftKnee", from = "LeftUpperLeg", to = "LeftLowerLeg", pivot = Vector3.new(-0.5, 1.5, 0) },
+	{ name = "LeftAnkle", from = "LeftLowerLeg", to = "LeftFoot", pivot = Vector3.new(-0.5, 0.3, 0) },
+	{ name = "RightHip", from = "LowerTorso", to = "RightUpperLeg", pivot = Vector3.new(0.5, 2.7, 0) },
+	{ name = "RightKnee", from = "RightUpperLeg", to = "RightLowerLeg", pivot = Vector3.new(0.5, 1.5, 0) },
+	{ name = "RightAnkle", from = "RightLowerLeg", to = "RightFoot", pivot = Vector3.new(0.5, 0.3, 0) },
+}
+
+-- Height of the root part's center above the feet at scale 1.
+RigBuilder.STAND_HEIGHT = 3.1
+
+local function eyes(model: Model, look: Looks.Look)
+	local glow = look.glowEyes == true
 	for side = -1, 1, 2 do
 		piece(
 			model,
 			"Head",
 			"Eye",
-			Vector3.new(0.25, 0.12, 0.05),
-			CFrame.new(0.22 * side, 0.05, -0.6),
-			color(look.glow),
-			Enum.Material.Neon
+			if glow then Vector3.new(0.26, 0.12, 0.05) else Vector3.new(0.14, 0.22, 0.05),
+			CFrame.new(0.24 * side, 0.08, -0.61),
+			if glow then color(look.glow) else Color3.fromRGB(25, 22, 30),
+			if glow then Enum.Material.Neon else Enum.Material.SmoothPlastic
 		)
 	end
 end
 
-function RigFactory.build(fighterId: string): Model
+function RigBuilder.build(fighterId: string): Model
 	local look = Looks.get(fighterId)
-	local desc = Instance.new("HumanoidDescription")
-	desc.HeadColor = color(look.skin)
-	desc.LeftArmColor = color(look.primary)
-	desc.RightArmColor = color(look.primary)
-	desc.TorsoColor = color(look.primary)
-	desc.LeftLegColor = color(look.secondary)
-	desc.RightLegColor = color(look.secondary)
-	desc.HeightScale = look.scale.height
-	desc.WidthScale = look.scale.width
-	desc.DepthScale = look.scale.depth
-	desc.HeadScale = look.scale.head
-	desc.BodyTypeScale = 0
-	desc.ProportionScale = 0
+	local s = look.scale
+	local function at(v: Vector3): Vector3
+		return Vector3.new(v.X * s.width, v.Y * s.height, v.Z * s.depth)
+	end
 
-	local model = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	local model = Instance.new("Model")
 	model.Name = fighterId
-	for _, child in model:GetDescendants() do
-		if child:IsA("Script") or child:IsA("LocalScript") then
-			child:Destroy()
-		elseif child:IsA("BasePart") then
-			child.CanCollide = false
-			child.CanQuery = false
-			child.CanTouch = false
-			child.Massless = true
-			if child.Name ~= "HumanoidRootPart" and look.material then
-				child.Material = (Enum.Material :: any)[look.material]
-			end
-		end
-	end
-	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
-	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-	humanoid.EvaluateStateMachine = false
-	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
-	root.Anchored = true
-	root.Transparency = 1
+	local material = if look.material then (Enum.Material :: any)[look.material] else Enum.Material.SmoothPlastic
 
-	if look.glowEyes then
-		addGlowEyes(model, look)
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2 * s.width, 2 * s.height, 1 * s.depth)
+	root.CFrame = CFrame.new(at(Vector3.new(0, 3.1, 0)))
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.CanQuery = false
+	root.CanTouch = false
+	root.Parent = model
+	model.PrimaryPart = root
+
+	local parts: { [string]: BasePart } = { HumanoidRootPart = root }
+	for _, spec in BODY do
+		local p = Instance.new("Part")
+		p.Name = spec.name
+		local size = Vector3.new(spec.size.X * s.width, spec.size.Y * s.height, spec.size.Z * s.depth)
+		if spec.name == "Head" then
+			size = spec.size * s.head
+		end
+		p.Size = size
+		p.CFrame = CFrame.new(at(spec.center))
+		p.Color = color((look :: any)[spec.slot])
+		p.Material = material
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Massless = true
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = model
+		parts[spec.name] = p
 	end
+	for _, j in JOINTS do
+		local part0, part1 = parts[j.from], parts[j.to]
+		local pivot = CFrame.new(at(j.pivot))
+		local motor = Instance.new("Motor6D")
+		motor.Name = j.name
+		motor.Part0 = part0
+		motor.Part1 = part1
+		motor.C0 = part0.CFrame:Inverse() * pivot
+		motor.C1 = part1.CFrame:Inverse() * pivot
+		motor.Parent = part1
+	end
+
+	eyes(model, look)
 	for _, gearName in look.gear do
-		local build = GEAR[gearName]
-		if build then
-			build(model, look)
+		local make = GEAR[gearName]
+		if make then
+			make(model, look)
 		end
 	end
 	model:SetAttribute("Glow", look.glow)
+	model:SetAttribute("StandHeight", RigBuilder.STAND_HEIGHT * s.height)
 	return model
 end
 
--- Builds the rigs for these fighters once and puts them where clients can clone them.
-function RigFactory.publish(fighterIds: { string })
-	local folder = ReplicatedStorage:FindFirstChild("FighterRigs")
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = "FighterRigs"
-		folder.Parent = ReplicatedStorage
-	end
-	for _, id in fighterIds do
-		if not (folder :: Instance):FindFirstChild(id) then
-			local ok, result = pcall(RigFactory.build, id)
-			if ok then
-				result.Parent = folder
-			else
-				warn(`[PromptFighters] rig for {id} failed: {result}`)
-			end
-		end
-	end
-end
-
-return RigFactory
+return RigBuilder

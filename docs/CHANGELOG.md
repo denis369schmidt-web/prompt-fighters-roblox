@@ -2,7 +2,7 @@
 
 ## Grafik-Upgrade (2026-10-20)
 
-- Kämpfer als R15-Figuren mit eigenem Look: VOLT NINJA (Stirnband, Maske, Klingen), MAGMOR (Steinschultern,
+- Kämpfer als R15-förmige Figuren aus eigenen Parts mit eigenem Look: VOLT NINJA (Stirnband, Maske, Klingen), MAGMOR (Steinschultern,
   Magma-Risse, Glutfäuste), JUBEI (Katana, Scheide, Schärpe), LEPORA (Hasenohren, Bogen, Köcher).
 - Prozedurale Animationen für Stand, Laufen, Sprung, Fall, Schild, Kante, Treffer, Benommenheit und alle Angriffsarten.
 - Effekte: Schlag-Trails, Treffer-Funken, Schadenszahlen, Schockwellen, KO-Explosion mit Bildschirmblitz.

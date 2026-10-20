@@ -1,5 +1,5 @@
 --!strict
--- How each fighter looks on Roblox: body colors, proportions, material and the gear pieces RigFactory builds
+-- How each fighter looks on Roblox: body colors, proportions, material and the gear pieces Visual/RigBuilder builds
 -- from plain parts. Own designs only (no catalog or third-party assets). Fighters without an entry get a look
 -- from their element color, so every roster fighter is playable before it gets a hand-made look.
 

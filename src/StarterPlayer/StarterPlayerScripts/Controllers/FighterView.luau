@@ -1,5 +1,5 @@
 --!strict
--- Draws the fighters from server snapshots: clones each fighter's R15 rig (built by the server's RigFactory),
+-- Draws the fighters from server snapshots: builds each fighter's R15-shaped rig locally (Visual/RigBuilder),
 -- moves it smoothly toward the newest snapshot and animates the joints procedurally (Visual/Pose).
 -- Also owns the per-fighter effects: weapon trails while striking, tumble trail when launched, shield bubble,
 -- hit flash, and the hit/KO/clash effects from match events.
@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Visuals = require(Shared:WaitForChild("Data"):WaitForChild("Visuals"))
 local Looks = require(Shared:WaitForChild("Data"):WaitForChild("Looks"))
 local Pose = require(Shared:WaitForChild("Visual"):WaitForChild("Pose"))
+local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local Effects = require(script.Parent.Effects)
@@ -84,43 +85,6 @@ local function trailBetween(part: BasePart, a: Vector3, b: Vector3, color: Color
 	return trail
 end
 
--- A simple rig the client can always build, used if the server rig hasn't arrived (keeps the match playable).
-local function fallbackRig(fighterId: string): Model
-	local look = Looks.get(fighterId)
-	local model = Instance.new("Model")
-	model.Name = fighterId
-	local root = Instance.new("Part")
-	root.Name = "HumanoidRootPart"
-	root.Size = Vector3.new(2, 2, 1)
-	root.Transparency = 1
-	root.Anchored = true
-	root.CanCollide = false
-	root.Parent = model
-	local body = Instance.new("Part")
-	body.Name = "UpperTorso"
-	body.Size = Vector3.new(2, 3.5, 1.2)
-	body.Color = Color3.fromHex(look.primary)
-	body.CanCollide = false
-	body.Massless = true
-	body.CFrame = root.CFrame
-	body.Parent = model
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0, weld.Part1 = root, body
-	weld.Parent = body
-	model.PrimaryPart = root
-	return model
-end
-
-local function cloneRig(fighterId: string): Model
-	local rigs = ReplicatedStorage:WaitForChild("FighterRigs", 5)
-	local source = if rigs then rigs:WaitForChild(fighterId, 5) else nil
-	if source and source:IsA("Model") then
-		return source:Clone()
-	end
-	warn(`[PromptFighters] no rig for {fighterId}, using fallback`)
-	return fallbackRig(fighterId)
-end
-
 local function build()
 	clear()
 	local f = Instance.new("Folder")
@@ -128,10 +92,9 @@ local function build()
 	f.Parent = workspace
 	folder = f
 	for i, slot in MatchState.slots do
-		local model = cloneRig(slot.fighterId)
+		local model = RigBuilder.build(slot.fighterId)
 		local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
-		local humanoid = model:FindFirstChildOfClass("Humanoid")
-		local standHeight = if humanoid then humanoid.HipHeight + root.Size.Y / 2 else 2.5
+		local standHeight = (model:GetAttribute("StandHeight") :: number?) or RigBuilder.STAND_HEIGHT
 		local motors: { [string]: Motor6D } = {}
 		for _, d in model:GetDescendants() do
 			if d:IsA("Motor6D") then
@@ -177,8 +140,9 @@ local function build()
 
 		local head = model:FindFirstChild("Head") or root
 		local tag = Instance.new("BillboardGui")
-		tag.Size = UDim2.fromOffset(170, 26)
-		tag.StudsOffset = Vector3.new(0, 2.6, 0)
+		tag.Size = UDim2.fromOffset(90, 22)
+		-- Staggered heights so tags of fighters standing close together don't cover each other.
+		tag.StudsOffset = Vector3.new(0, 2.2 + ((i - 1) % 2) * 1.1, 0)
 		tag.AlwaysOnTop = true
 		tag.LightInfluence = 0
 		tag.Adornee = head :: BasePart
@@ -190,7 +154,7 @@ local function build()
 		label.TextScaled = true
 		label.TextColor3 = slotColor
 		label.TextStrokeTransparency = 0.2
-		label.Text = if slot.player then `P{i} {slot.player}` else `CPU {slot.name}`
+		label.Text = if slot.player then `P{i}` else `CPU {i}`
 		label.Parent = tag
 
 		model.Parent = f

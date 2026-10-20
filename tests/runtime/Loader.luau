@@ -6,6 +6,7 @@
 -- keeps the normal `require(script.Parent.X)` style and runs unchanged in tests.
 
 local fs = require("@lune/fs")
+local roblox = require("@lune/roblox")
 local luau = require("@lune/luau")
 
 local Loader = {}
@@ -132,7 +133,16 @@ function requireNode(target: any): any
 	loading[file] = true
 	local chunk = luau.load(fs.readFile(file), {
 		debugName = file,
-		environment = { script = target, require = requireNode },
+		environment = {
+			script = target,
+			require = requireNode,
+			-- Roblox datatypes from Lune, so instance-building modules (e.g. Visual/RigBuilder) run headless.
+			Instance = roblox.Instance,
+			Vector3 = roblox.Vector3,
+			CFrame = roblox.CFrame,
+			Color3 = roblox.Color3,
+			Enum = roblox.Enum,
+		},
 	})
 	local result = chunk()
 	loading[file] = nil
