@@ -23,9 +23,9 @@ local DEFAULT_SCALE = { height = 1, width = 1, depth = 1, head = 1 }
 
 Looks.BY_ID = {
 	ninja = {
-		skin = "#2A2D3A",
-		primary = "#1B1D2B",
-		secondary = "#14151F",
+		skin = "#4A5070",
+		primary = "#3A4068",
+		secondary = "#2A2E4A",
 		glow = "#3FD0FF",
 		material = "Fabric",
 		scale = { height = 1, width = 0.92, depth = 0.95, head = 0.95 },
@@ -33,9 +33,9 @@ Looks.BY_ID = {
 		glowEyes = true,
 	},
 	golem = {
-		skin = "#3B2F2B",
-		primary = "#4A3A33",
-		secondary = "#2E2421",
+		skin = "#6A5248",
+		primary = "#7A5E50",
+		secondary = "#4E3C34",
 		glow = "#FF6A1F",
 		material = "Slate",
 		scale = { height = 1.12, width = 1.3, depth = 1.15, head = 0.9 },

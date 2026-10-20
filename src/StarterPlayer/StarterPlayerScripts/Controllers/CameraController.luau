@@ -10,8 +10,8 @@ local MatchState = require(script.Parent.Parent.State.MatchState)
 
 local M = Visuals.STUDS_PER_METER
 local BASE_Y = Visuals.STAGE_Y
-local MIN_DISTANCE = 42
-local MAX_DISTANCE = 95
+local MIN_DISTANCE = 34
+local MAX_DISTANCE = 80
 local FOLLOW = 5
 
 local CameraController = {}

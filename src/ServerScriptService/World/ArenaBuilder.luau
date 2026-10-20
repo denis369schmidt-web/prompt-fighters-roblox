@@ -74,7 +74,8 @@ local function sign(parent: Instance, text: string, position: Vector3, color: Co
 	frame.Transparency = 0.3
 	light(board, color, 26, 2)
 	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
+	-- Back face points toward the camera (+Z).
+	gui.Face = Enum.NormalId.Back
 	gui.LightInfluence = 0
 	gui.Brightness = 3
 	gui.Parent = board
@@ -103,7 +104,7 @@ local function skyline(parent: Instance, z: number)
 		tower.CastShadow = false
 		-- Lit windows: a few neon strips per tower.
 		for row = 1, math.floor(height / 9) do
-			if (k + row) % 3 ~= 0 then
+			if (k + row) % 3 == 0 then
 				local strip = part(
 					parent,
 					"Windows",
@@ -112,7 +113,7 @@ local function skyline(parent: Instance, z: number)
 					if (k * row) % 4 == 0 then MAGENTA else Color3.fromRGB(255, 190, 120),
 					Enum.Material.Neon
 				)
-				strip.Transparency = 0.35
+				strip.Transparency = 0.65
 			end
 		end
 		part(
@@ -161,6 +162,15 @@ local function lamp(parent: Instance, x: number, z: number)
 	spot.Parent = bulb
 end
 
+-- Invisible stage lights in front of the fight so fighters read clearly at night.
+local function keyLights(parent: Instance)
+	for _, x in { -6, 0, 6 } do
+		local holder = part(parent, "KeyLight", Vector3.one, world(x, 7) + Vector3.new(0, 0, 14), Color3.new(1, 1, 1))
+		holder.Transparency = 1
+		light(holder, Color3.fromRGB(225, 215, 255), 50, 2.5)
+	end
+end
+
 local function rain(parent: Instance)
 	local cloud =
 		part(parent, "RainCloud", Vector3.new(160, 1, 60), Vector3.new(0, BASE_Y + 70, 0), Color3.new(0, 0, 0))
@@ -181,9 +191,10 @@ end
 
 local function grade()
 	Lighting.ClockTime = 0
-	Lighting.Brightness = 2
-	Lighting.Ambient = Color3.fromRGB(90, 80, 130)
-	Lighting.OutdoorAmbient = Color3.fromRGB(80, 70, 120)
+	Lighting.Brightness = 3
+	Lighting.ExposureCompensation = 0.4
+	Lighting.Ambient = Color3.fromRGB(140, 130, 175)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 140, 190)
 	Lighting.EnvironmentDiffuseScale = 0.4
 	Lighting.EnvironmentSpecularScale = 1
 	Lighting.GlobalShadows = true
@@ -193,12 +204,12 @@ local function grade()
 		end
 	end
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.32
+	atmosphere.Density = 0.12
 	atmosphere.Offset = 0.1
 	atmosphere.Color = Color3.fromRGB(120, 80, 170)
-	atmosphere.Decay = Color3.fromRGB(40, 20, 70)
+	atmosphere.Decay = Color3.fromRGB(90, 60, 140)
 	atmosphere.Glare = 0
-	atmosphere.Haze = 1.5
+	atmosphere.Haze = 0.6
 	atmosphere.Parent = Lighting
 	local bloom = Instance.new("BloomEffect")
 	bloom.Intensity = 1
@@ -228,7 +239,7 @@ function ArenaBuilder.build(arenaId: string): Model
 		"Stage",
 		Vector3.new(stageWidth, 4 * M, depth),
 		world(0, -2),
-		Color3.fromRGB(32, 28, 50),
+		Color3.fromRGB(70, 62, 100),
 		Enum.Material.Concrete
 	)
 	local top = part(
@@ -236,10 +247,9 @@ function ArenaBuilder.build(arenaId: string): Model
 		"StageTop",
 		Vector3.new(stageWidth, 0.2, depth),
 		world(0, 0) - Vector3.new(0, 0.1, 0),
-		Color3.fromRGB(26, 24, 40)
+		Color3.fromRGB(58, 52, 86)
 	)
-	top.Reflectance = 0.25
-	top.Material = Enum.Material.Glass
+	top.Reflectance = 0.3
 	part(
 		model,
 		"Underside",
@@ -356,8 +366,8 @@ function ArenaBuilder.build(arenaId: string): Model
 	sign(model, "PROMPT", Vector3.new(-34, BASE_Y + 24, wallZ), MAGENTA, 16)
 	sign(model, "FIGHTERS", Vector3.new(34, BASE_Y + 28, wallZ), CYAN, 18)
 	sign(model, "NEON-GASSE", Vector3.new(0, BASE_Y + 40, wallZ - 6), GOLD, 22)
-	skyline(model, wallZ - 22)
 	skyline(model, wallZ - 45)
+	keyLights(model)
 	rain(model)
 
 	model.Parent = workspace
