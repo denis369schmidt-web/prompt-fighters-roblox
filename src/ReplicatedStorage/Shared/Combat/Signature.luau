@@ -108,7 +108,7 @@ end
 function Signature.followup(sim: any, i: number): Ability?
 	local f = sim.fighters[i]
 	local sig = f.sigParams
-	if sig == nil then
+	if sig == nil or f.weapon then
 		return nil
 	end
 	local base = f.moves.nspecial :: Ability

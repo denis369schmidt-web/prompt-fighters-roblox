@@ -49,6 +49,7 @@ type View = {
 	flash: number,
 	ice: Part,
 	wings: { Part },
+	scale: number,
 }
 
 local STATUS = Simulation.STATUS
@@ -223,6 +224,7 @@ local function build()
 			flash = 0,
 			ice = ice,
 			wings = wings,
+			scale = 1,
 		}
 	end
 end
@@ -308,6 +310,13 @@ local function render(dt: number)
 		local function has(bit: number): boolean
 			return bit32.btest(status, bit)
 		end
+		-- Titan mushroom: the fighter grows to one and a half times the size.
+		local wantScale = if has(STATUS.titan) then 1.5 else 1
+		if wantScale ~= view.scale then
+			view.model:ScaleTo(wantScale)
+			view.standHeight = view.standHeight / view.scale * wantScale
+			view.scale = wantScale
+		end
 		view.ice.Transparency = if has(STATUS.frozen) and alive then 0.35 else 1
 		view.ice.CFrame = CFrame.new(view.position + Vector3.new(0, view.ice.Size.Y / 2, 0))
 		local flying = has(STATUS.eagle) and alive
@@ -342,6 +351,16 @@ local function render(dt: number)
 		local armored = has(STATUS.armor) or has(STATUS.bulwark) or has(STATUS.turbo)
 		view.highlight.OutlineColor = if armored then GOLD else view.label.TextColor3
 	end
+end
+
+-- A body part of a drawn fighter (ItemView puts weapons into the right hand), or nil.
+function FighterView.part(slot: number, name: string): BasePart?
+	local view = views[slot]
+	if view == nil then
+		return nil
+	end
+	local found = view.model:FindFirstChild(name, true)
+	return if found and found:IsA("BasePart") then found else nil
 end
 
 local function chest(view: View): Vector3

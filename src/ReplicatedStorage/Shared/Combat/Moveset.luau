@@ -50,6 +50,10 @@ export type Ability = {
 	kbScale: number?,
 	charge: boolean?,
 	noHeat: boolean?,
+	-- weapon items (Combat/Items)
+	weapon: string?,
+	spawnShot: string?,
+	breaksWeapon: boolean?,
 }
 
 export type BaseAttacks = {

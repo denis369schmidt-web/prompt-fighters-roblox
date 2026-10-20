@@ -8,6 +8,7 @@
 -- when packets and ticks don't line up.
 
 local Bot = require(script.Parent.Bot)
+local Items = require(script.Parent.Items)
 local Projectiles = require(script.Parent.Projectiles)
 local Input = require(script.Parent.Input)
 local Simulation = require(script.Parent.Simulation)
@@ -40,6 +41,7 @@ export type Runner = {
 	step: (self: Runner, dt: number) -> ({ Simulation.Event }, number),
 	snapshot: (self: Runner) -> { any },
 	shots: (self: Runner) -> { number },
+	items: (self: Runner) -> { number },
 }
 
 local MatchRunner = {}
@@ -226,6 +228,11 @@ function MatchRunner.shots(self: Runner): { number }
 		table.insert(out, round2(pr.sizeNow or Projectiles.num(pr.spec, "size", 0.5)))
 	end
 	return out
+end
+
+-- Item state for the renderer (Items.encode), sent unreliable at 10 Hz.
+function MatchRunner.items(self: Runner): { number }
+	return Items.encode(self.sim)
 end
 
 -- Client side of snapshot(): turns the flat arrays back into named fields.

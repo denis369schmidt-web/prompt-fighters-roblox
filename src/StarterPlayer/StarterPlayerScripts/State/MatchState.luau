@@ -19,6 +19,8 @@ local MatchState = {
 	mySlot = nil :: number?,
 	-- projectile id -> latest position and size (meters)
 	shots = {} :: { [number]: { x: number, y: number, size: number } },
+	-- item id -> kind index, position and holder state (see Combat/Items.encode)
+	items = {} :: { [number]: { kind: number, x: number, y: number, state: number } },
 }
 
 local listeners: { (event: { [string]: any }) -> () } = {}
@@ -68,6 +70,14 @@ function MatchState.start()
 			end
 		end
 	end)
+	local itemsRemote = remotes:WaitForChild("Items") :: UnreliableRemoteEvent
+	itemsRemote.OnClientEvent:Connect(function(flat: { number })
+		local list = {}
+		for k = 1, #flat - 4, 5 do
+			list[flat[k]] = { kind = flat[k + 1], x = flat[k + 2], y = flat[k + 3], state = flat[k + 4] }
+		end
+		MatchState.items = list
+	end)
 	eventRemote.OnClientEvent:Connect(function(events)
 		for _, event in events do
 			if event.type == "phase" then
@@ -85,6 +95,7 @@ function MatchState.start()
 				if event.phase == "lobby" then
 					MatchState.snapshot, MatchState.previous = nil, nil
 					table.clear(MatchState.shots)
+					MatchState.items = {}
 				end
 			end
 			dispatch(event)

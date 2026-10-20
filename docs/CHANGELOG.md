@@ -1,5 +1,15 @@
 # Changelog
 
+## Items, Waffen und Power-ups (2026-10-20)
+
+- `Combat/Items`: Leichte Kiste, Schwerer Stein, Holzfass und Explosiv-Fass liegen ab Start in der Arena; Greifen hebt
+  sie auf, Angriff oder Spezial wirft. Das Explosiv-Fass explodiert bei Treffer, Wurf oder hartem Aufprall.
+- Alle 13 bis 18 Sekunden fällt eine klassische Waffe (60 %) oder ein Power-up: Titan-Pilz, Schutzstern,
+  Blitz-Schuhe, Wucht-Hammer, Herz, Frostbombe. Waffen verlängern Reichweite und Wucht, Spezial wird zur
+  Waffenfähigkeit (Strahl, Beben, Frostnova, Laser, Bumerang); nach ihren Einsätzen zerbrechen sie.
+- Client: `ItemView` baut alle Items und Waffen aus Parts, Waffen in der Hand, Getragenes über dem Kopf,
+  Explosionen, Titan-Wachstum der Figur.
+
 ## Signatur-Spezialangriffe (2026-10-20)
 
 - Alle 59 Signaturen aus Godot portiert (`Combat/Signature`, `Combat/Projectiles`, `Moveset.signatureAbility`): Geschosse

@@ -38,6 +38,15 @@ local NET_EVENTS = {
 	super_used = true,
 	ledge_grab = true,
 	throw = true,
+	-- items
+	item_spawned = true,
+	item_pickup = true,
+	item_throw = true,
+	item_explode = true,
+	item_break = true,
+	weapon_pickup = true,
+	weapon_break = true,
+	powerup = true,
 	-- signature specials
 	signature = true,
 	projectile = true,
@@ -214,6 +223,9 @@ local function onHeartbeat(dt: number)
 				RemoteHub.fireAll("Shots", shots)
 			end
 			hadShots = #shots > 0
+			if current.sim.frame % 6 < SNAPSHOT_EVERY then
+				RemoteHub.fireAll("Items", current:items())
+			end
 		end
 		if current.sim.result ~= nil then
 			RemoteHub.fireAll("Snapshot", current:snapshot())

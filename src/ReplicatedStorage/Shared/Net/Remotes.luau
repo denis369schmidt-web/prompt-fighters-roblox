@@ -21,6 +21,8 @@ local Remotes: { [string]: RemoteDef } = {
 	MatchEvent = { kind = "event", direction = "toClient" },
 	-- Projectile positions at 30 Hz (unreliable), spawned and ended through MatchEvent.
 	Shots = { kind = "event", direction = "toClient" },
+	-- Arena items at 10 Hz (unreliable): id, kind, position, holder.
+	Items = { kind = "event", direction = "toClient" },
 	FinisherCode = { kind = "event", direction = "toServer", perSecond = 10, args = { "string" } },
 	SelectFighter = { kind = "event", direction = "toServer", perSecond = 4, args = { "string" } },
 	VoteArena = { kind = "event", direction = "toServer", perSecond = 2, args = { "string" } },

@@ -34,3 +34,7 @@ Format: Datum, Entscheidung, Grund. Umkehrbare Standardentscheidungen, die ohne 
 | 2026-10-20 | Signaturen bekommen im Snapshot ihren Mechanik-Namen als Move (`Pose.MOVE_KIND` ordnet ihn einer Körperhaltung zu). | Der Client zeigt die passende Pose (Wurf, Sprung, Drehung) ohne eigene Netzwerkfelder. |
 | 2026-10-20 | Ein Spezial-Druck während der Erholung eines Angriffs verfällt (wie in Godot). Die Kombo-Fenster der Folgeangriffe sind lang genug. | Gleiches Spielgefühl wie das Original; Eingabepuffer kann später global kommen. |
 | 2026-10-20 | Einfrieren hält Treffer-Stun mindestens so lange wie das Eis und sperrt alle Eingaben. | Godot setzt Tempo auf 0 und blockiert Angriffe; so ist es ein einziger Zustand. |
+| 2026-10-20 | Power-ups kürzer als in Godot: Schutzstern 6 s (statt 10), Titan 12 s (15), Tempo 10 s (12), Hammer 10 s (12). Herz heilt 30 % statt 60 LP. | Mit 4 Spielern liegt ein Power-up sonst zu lange beim selben Spieler; Roblox-Kämpfe zählen Prozent, keine Lebenspunkte. |
+| 2026-10-20 | Startitems nur Wurfobjekte (Kiste, Stein, Fass, Explosiv-Fass); Power-ups fallen erst im Match. | Ein Schutzstern zum Start entscheidet sonst die ersten Sekunden. |
+| 2026-10-20 | Items über eigenes Unreliable-Remote `Items` mit 10 Hz (`id, Art, x, y, Halter`). | Items bewegen sich selten; hält Snapshot und Shots klein. |
+| 2026-10-20 | Im Match fallen nur klassische Waffen. Shop-Waffen bleiben außen vor, bis Besitz und Modus (nicht Ranked) geprüft werden (Phase Shop). | Kein Pay-to-Win in normalen Matches. |

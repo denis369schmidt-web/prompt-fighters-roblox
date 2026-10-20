@@ -9,7 +9,7 @@ local Guard = require(ReplicatedStorage.Shared.Net.Guard)
 local Remotes = require(ReplicatedStorage.Shared.Net.Remotes)
 
 -- Remotes that may drop packets (state that is resent anyway).
-local UNRELIABLE = { Snapshot = true, Shots = true }
+local UNRELIABLE = { Snapshot = true, Shots = true, Items = true }
 
 local RemoteHub = {}
 

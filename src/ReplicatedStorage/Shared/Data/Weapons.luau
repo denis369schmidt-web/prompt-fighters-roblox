@@ -18,6 +18,7 @@ export type Weapon = {
 	shoot: string?,
 	freeze: number?,
 	shop: boolean?,
+	color: string?,
 	price: number?,
 	rarity: string?,
 }
