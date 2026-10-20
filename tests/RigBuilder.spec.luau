@@ -1,13 +1,15 @@
 local RigBuilder = require(Shared.Visual.RigBuilder)
 local Looks = require(Shared.Data.Looks)
+local GearData = require(Shared.Visual.GearData)
 local Pose = require(Shared.Visual.Pose)
+local Visuals = require(Shared.Data.Visuals)
 
 local function close(a, b)
 	return (a.Position - b.Position).Magnitude < 1e-3
 end
 
 describe("RigBuilder", function()
-	for _, id in { "ninja", "golem", "jubei", "lepora", "kairo" } do
+	for _, id in Visuals.SLICE_FIGHTERS do
 		it(`builds a complete, consistent rig for {id}`, function()
 			local model = RigBuilder.build(id)
 			local motors = {}
@@ -39,6 +41,30 @@ describe("RigBuilder", function()
 				end
 			end
 			expect(parts).toBeGreaterThan(18)
+			-- Data-driven gear lands on the rig with every piece (named parts exist).
+			for _, gear in Looks.get(id).gear do
+				for _, d in (GearData :: any)[gear] or {} do
+					assert(model:FindFirstChild(d.name, true), `{id}: {gear} piece {d.name} missing`)
+				end
+			end
 		end)
 	end
+
+	it("builds every gear set in the data with valid limbs, materials and shapes", function()
+		local all = {}
+		for gear in GearData :: any do
+			table.insert(all, gear)
+		end
+		local look = table.clone(Looks.get("ninja")) :: any
+		look.gear = all
+		Looks.BY_ID.__allgear = look
+		local ok, model = pcall(RigBuilder.build, "__allgear")
+		Looks.BY_ID.__allgear = nil
+		assert(ok, tostring(model))
+		for gear, pieces in GearData :: any do
+			for _, d in pieces do
+				assert(model:FindFirstChild(d.name, true), `{gear}: piece {d.name} not built (limb {d.limb}?)`)
+			end
+		end
+	end)
 end)

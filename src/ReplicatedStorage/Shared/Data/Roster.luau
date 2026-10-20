@@ -55,7 +55,6 @@ local Roster: { RosterEntry } = {
 		elementLabel = "Wind",
 		signature = "charge_beam",
 		unlock = { kind = "starter" },
-		ipReview = "Ki-Kämpfer-Archetyp: keine Stachelfrisur, keine bekannten Technik-Namen",
 	},
 	{
 		id = "varakh",
@@ -82,7 +81,6 @@ local Roster: { RosterEntry } = {
 		elementLabel = "Eis",
 		signature = "ice_decoy",
 		unlock = { kind = "starter" },
-		ipReview = "Frost-Ninja-Archetyp: Maske und Farben klar von bekannten Kampfspiel-Ninjas abgrenzen",
 	},
 	{
 		id = "oryn",
@@ -109,7 +107,6 @@ local Roster: { RosterEntry } = {
 		elementLabel = "Windklinge",
 		signature = "tri_slash",
 		unlock = { kind = "starter" },
-		ipReview = "Drei-Klingen-Archetyp: keine grünen Haare, kein Schwert im Mund",
 	},
 	{
 		id = "ren",
@@ -162,7 +159,6 @@ local Roster: { RosterEntry } = {
 		elementLabel = "Wind",
 		signature = "turbo",
 		unlock = { kind = "starter" },
-		ipReview = "Speedster-Archetyp: kein blauer Igel, keine Ringe",
 	},
 	{
 		id = "raiga",

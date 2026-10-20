@@ -1,5 +1,13 @@
 # Changelog
 
+## 16 Startkämpfer mit eigenem Look (2026-10-20)
+
+- Kämpferwahl zeigt 16 Startkämpfer im 8×2-Raster: VOLT NINJA, MAGMOR, BOLTAR, KAIRO, GLACIEM, JUBEI, ZIP, LEPORA, CARDINAL, GRIMBOLT, TEMPLAR, SCARLET, CELESTIAL FOX, CYBORG MECH, NEKRA, DUSTY.
+- 39 neue Ausrüstungs-Sets als Daten (`Visual/GearData`): Helme, Flügel, Umhänge, Schwerter, Schild, Raketenkapseln, Lasso und mehr. `RigBuilder` baut sie mit Farben aus dem Look.
+- Eigenständige Neugestaltung von KAIRO (kahler Mönch mit Gebetskette), GLACIEM (Eis-Assassinin ohne Ninja-Maske), ZIP (orangener Kurier mit Düsen) und JUBEI (Rot statt Grün).
+- Arena: Schilder mit großer, lesbarer Schrift, ruhigere Skyline (kleine Fenster statt Neonstreifen), Bühnenfront aus dunklen Stahlplatten.
+- Bots eine Stufe leichter; wer alle Leben verliert, sieht „DU BIST RAUS“.
+
 ## Items, Waffen und Power-ups (2026-10-20)
 
 - `Combat/Items`: Leichte Kiste, Schwerer Stein, Holzfass und Explosiv-Fass liegen ab Start in der Arena; Greifen hebt

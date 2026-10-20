@@ -56,8 +56,25 @@ end
 -- Player slot colors for HUD cards and name tags (P1 red, P2 blue, P3 yellow, P4 green).
 Visuals.SLOT_COLORS = { "#FF4D5E", "#3FA9FF", "#FFD23F", "#4CE08A" }
 
--- The Phase 1 vertical slice plays these four fighters on NEON-GASSE.
-Visuals.SLICE_FIGHTERS = { "ninja", "golem", "jubei", "lepora" }
+-- The 16 launch fighters: hand-made looks, all signatures. The rest of the roster follows in updates.
+Visuals.SLICE_FIGHTERS = {
+	"ninja",
+	"golem",
+	"valkyrie",
+	"kairo",
+	"glaciem",
+	"jubei",
+	"zip",
+	"lepora",
+	"steel_knight",
+	"grimbolt",
+	"dragon",
+	"phoenix",
+	"celestial_fox",
+	"cyborg_mech",
+	"nekra",
+	"dusty",
+}
 Visuals.SLICE_ARENA = "neon_alley"
 
 return Visuals

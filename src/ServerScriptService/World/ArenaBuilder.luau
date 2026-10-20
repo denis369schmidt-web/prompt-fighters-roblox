@@ -76,6 +76,9 @@ local function sign(parent: Instance, text: string, position: Vector3, color: Co
 	local gui = Instance.new("SurfaceGui")
 	-- Back face points toward the camera (+Z).
 	gui.Face = Enum.NormalId.Back
+	-- Few pixels per stud so TextScaled (capped at 100 px) fills the whole board instead of a corner of it.
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 12
 	gui.LightInfluence = 0
 	gui.Brightness = 3
 	gui.Parent = board
@@ -102,28 +105,32 @@ local function skyline(parent: Instance, z: number)
 			Color3.fromRGB(14, 11, 28)
 		)
 		tower.CastShadow = false
-		-- Lit windows: a few neon strips per tower.
-		for row = 1, math.floor(height / 9) do
-			if (k + row) % 3 == 0 then
-				local strip = part(
-					parent,
-					"Windows",
-					Vector3.new(width * 0.7, 0.6, 0.1),
-					Vector3.new(x, BASE_Y - 20 + row * 8.5, z + 7.05),
-					if (k * row) % 4 == 0 then MAGENTA else Color3.fromRGB(255, 190, 120),
-					Enum.Material.Neon
-				)
-				strip.Transparency = 0.65
+		-- Lit windows: a sparse grid of small warm squares (long strips read as floating lines on screen).
+		for row = 1, math.floor(height / 7) do
+			for col = -1, 1 do
+				if (k * 7 + row * 3 + col * 5) % 4 == 0 then
+					local window = part(
+						parent,
+						"Window",
+						Vector3.new(2.2, 2.6, 0.1),
+						Vector3.new(x + col * width * 0.28, BASE_Y - 20 + row * 7, z + 7.05),
+						Color3.fromRGB(255, 196, 130),
+						Enum.Material.Neon
+					)
+					window.Transparency = 0.55
+				end
 			end
 		end
-		part(
-			parent,
-			"Roofline",
-			Vector3.new(width + 0.4, 0.5, 0.5),
-			Vector3.new(x, BASE_Y - 20 + height, z + 7.1),
-			if k % 2 == 0 then CYAN else MAGENTA,
-			Enum.Material.Neon
-		)
+		if k % 3 == 0 then
+			part(
+				parent,
+				"Roofline",
+				Vector3.new(width + 0.4, 0.5, 0.5),
+				Vector3.new(x, BASE_Y - 20 + height, z + 7.1),
+				if k % 2 == 0 then CYAN else MAGENTA,
+				Enum.Material.Neon
+			)
+		end
 	end
 end
 
@@ -239,9 +246,22 @@ function ArenaBuilder.build(arenaId: string): Model
 		"Stage",
 		Vector3.new(stageWidth, 4 * M, depth),
 		world(0, -2),
-		Color3.fromRGB(70, 62, 100),
+		Color3.fromRGB(30, 27, 46),
 		Enum.Material.Concrete
 	)
+	-- Front face: dark steel panels with seams, so the block reads as a street platform and not one flat wall.
+	local panels = 8
+	for k = 0, panels - 1 do
+		local x = Arena.STAGE_LEFT + (k + 0.5) * (Arena.STAGE_RIGHT - Arena.STAGE_LEFT) / panels
+		part(
+			model,
+			"Panel",
+			Vector3.new(stageWidth / panels - 0.5, 4 * M - 2.2, 0.3),
+			world(x, -2.1) + Vector3.new(0, 0, depth / 2 + 0.1),
+			if k % 2 == 0 then Color3.fromRGB(38, 34, 56) else Color3.fromRGB(33, 30, 50),
+			Enum.Material.DiamondPlate
+		)
+	end
 	local top = part(
 		model,
 		"StageTop",
@@ -278,7 +298,7 @@ function ArenaBuilder.build(arenaId: string): Model
 		model,
 		"TrimLower",
 		Vector3.new(stageWidth * 0.98, 0.25, 0.25),
-		world(0, -1.5) + Vector3.new(0, 0, depth / 2),
+		world(0, -0.35) + Vector3.new(0, 0, depth / 2 + 0.35),
 		MAGENTA,
 		Enum.Material.Neon
 	)

@@ -4,6 +4,7 @@
 -- asset service, so rigs render the same in an unpublished Studio place, a live server and on every device.
 -- Runs on the client; each client builds its own copies.
 
+local GearData = require(script.Parent.GearData)
 local Looks = require(script.Parent.Parent.Data.Looks)
 
 local RigBuilder = {}
@@ -394,6 +395,62 @@ local GEAR: { [string]: (model: Model, look: Looks.Look) -> () } = {
 		)
 	end,
 }
+
+-- Fixed tones for data-driven gear (GearData); look slots (primary, glow, hair, accent, ...) come from the look.
+local TONES: { [string]: string } = {
+	steel = "#A7B4C2",
+	gold = "#D4A93C",
+	wood = "#6E4B30",
+	dark = "#222026",
+	white = "#F2F2F2",
+	leather = "#5A3B22",
+	bone = "#E8E4D8",
+	rope = "#C8A46A",
+	red = "#B3202A",
+}
+
+local function toneOf(look: Looks.Look, slot: string): Color3
+	local tone = TONES[slot]
+	if tone then
+		return color(tone)
+	end
+	if slot == "hair" then
+		return color(look.hair or "#2A2226")
+	elseif slot == "accent" then
+		return color(look.accent or look.glow)
+	end
+	local value = (look :: any)[slot]
+	return color(if type(value) == "string" then value else look.glow)
+end
+
+local function dataGear(pieces: { GearData.Piece }): (model: Model, look: Looks.Look) -> ()
+	return function(model, look)
+		for _, d in pieces do
+			local offset = CFrame.new(d.offset[1], d.offset[2], d.offset[3])
+			local rotation = d.rotation
+			if rotation then
+				offset *= CFrame.Angles(math.rad(rotation[1]), math.rad(rotation[2]), math.rad(rotation[3]))
+			end
+			local shape = d.shape
+			piece(
+				model,
+				d.limb,
+				d.name,
+				Vector3.new(d.size[1], d.size[2], d.size[3]),
+				offset,
+				toneOf(look, d.color),
+				(Enum.Material :: any)[d.material],
+				if shape then (Enum.PartType :: any)[shape] else nil
+			)
+		end
+	end
+end
+
+for gearName, pieces in GearData :: { [string]: { GearData.Piece } } do
+	if GEAR[gearName] == nil then
+		GEAR[gearName] = dataGear(pieces)
+	end
+end
 
 RigBuilder.GEAR = GEAR
 

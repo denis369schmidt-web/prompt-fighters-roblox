@@ -18,7 +18,7 @@ local LOBBY_SECONDS = 6
 local RESULTS_SECONDS = 7
 local SLOTS = 4
 local SNAPSHOT_EVERY = 2 -- ticks
-local BOT_LEVEL = 4
+local BOT_LEVEL = 3 -- three bots at once: keep them beatable for new players
 
 -- Events the clients need for effects and the HUD (others stay on the server).
 local NET_EVENTS = {

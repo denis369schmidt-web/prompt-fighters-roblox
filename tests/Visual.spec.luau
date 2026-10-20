@@ -124,9 +124,11 @@ describe("Looks", function()
 		end
 	end)
 
-	it("hand-designs the four slice fighters", function()
-		for _, id in { "ninja", "golem", "jubei", "lepora" } do
-			expect(Looks.BY_ID[id] ~= nil).toBe(true)
+	it("hand-designs all 16 launch fighters", function()
+		local Visuals = require(Shared.Data.Visuals)
+		expect(#Visuals.SLICE_FIGHTERS).toBe(16)
+		for _, id in Visuals.SLICE_FIGHTERS do
+			assert(Looks.BY_ID[id] ~= nil, `{id} has no hand-made look`)
 		end
 	end)
 

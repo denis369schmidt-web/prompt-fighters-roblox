@@ -120,22 +120,27 @@ function Hud.start()
 		end
 	end
 
-	-- Lobby: pick one of the slice fighters.
+	-- Lobby: pick one of the launch fighters (8 x 2 grid that shrinks to the screen width).
 	local picker = Instance.new("Frame")
-	picker.Size = UDim2.new(1, 0, 0, 170)
-	picker.Position = UDim2.new(0, 0, 1, -200)
+	picker.Size = UDim2.new(0.96, 0, 0, 236)
+	picker.AnchorPoint = Vector2.new(0.5, 0)
+	picker.Position = UDim2.new(0.5, 0, 1, -256)
 	picker.BackgroundTransparency = 1
 	picker.Parent = gui
-	local pickerLayout = layout:Clone()
+	local pickerLayout = Instance.new("UIGridLayout")
+	pickerLayout.CellSize = UDim2.new(0.115, 0, 0.47, 0)
+	pickerLayout.CellPadding = UDim2.new(0.01, 0, 0.04, 0)
+	pickerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	pickerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	pickerLayout.Parent = picker
-	local pickerTitle = label(gui, "WÄHLE DEINEN KÄMPFER", UDim2.new(1, 0, 0, 44), UDim2.new(0, 0, 1, -250))
+	local pickerTitle = label(gui, "WÄHLE DEINEN KÄMPFER", UDim2.new(1, 0, 0, 44), UDim2.new(0, 0, 1, -306))
 	local selectRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("SelectFighter") :: RemoteEvent
 	local chosen: string? = nil
 	local pickButtons: { [string]: TextButton } = {}
 	for _, fighterId in Visuals.SLICE_FIGHTERS do
 		local def = Fighters.get(fighterId)
 		local button = Instance.new("TextButton")
-		button.Size = UDim2.fromOffset(150, 150)
+		button.LayoutOrder = #picker:GetChildren()
 		button.BackgroundColor3 = Color3.fromHex(Visuals.elementColor(def.element))
 		button.Font = FONT
 		button.TextScaled = true
@@ -262,6 +267,8 @@ function Hud.start()
 			showBanner("FINISHER!", "Code: " .. table.concat(event.code, " "), 5)
 		elseif t == "finisher" then
 			showBanner(event.name, "FINISHER", 2.5)
+		elseif t == "fighter_eliminated" and event.actor == MatchState.mySlot then
+			showBanner("DU BIST RAUS", "Zuschauen – nächste Runde gleich", 3)
 		elseif t == "sudden_death" then
 			showBanner("SUDDEN DEATH", "150 % – ein Treffer entscheidet", 2)
 		elseif t == "results" then

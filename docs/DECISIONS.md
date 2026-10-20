@@ -38,3 +38,7 @@ Format: Datum, Entscheidung, Grund. Umkehrbare Standardentscheidungen, die ohne 
 | 2026-10-20 | Startitems nur Wurfobjekte (Kiste, Stein, Fass, Explosiv-Fass); Power-ups fallen erst im Match. | Ein Schutzstern zum Start entscheidet sonst die ersten Sekunden. |
 | 2026-10-20 | Items über eigenes Unreliable-Remote `Items` mit 10 Hz (`id, Art, x, y, Halter`). | Items bewegen sich selten; hält Snapshot und Shots klein. |
 | 2026-10-20 | Im Match fallen nur klassische Waffen. Shop-Waffen bleiben außen vor, bis Besitz und Modus (nicht Ranked) geprüft werden (Phase Shop). | Kein Pay-to-Win in normalen Matches. |
+| 2026-10-20 | 16 Startkämpfer statt aller 50 zum Launch. Restliche Kämpfer folgen als Updates. | Jeder Startkämpfer hat einen handgemachten Look; neue Kämpfer sind Update-Anlässe für Wachstum. |
+| 2026-10-20 | KAIRO, GLACIEM, ZIP und JUBEI neu gestaltet (Look und Farben), `ipReview` entfernt. Move-Namen waren schon eigenständig. | Abstand zu bekannten Anime- und Spiele-Figuren, damit nichts mit fremder Marke verwechselt wird. |
+| 2026-10-20 | Ausrüstung als Daten (`Visual/GearData`) statt als Code pro Teil. | 39 Sets bleiben lesbar und testbar; neue Kämpfer brauchen nur Daten. |
+| 2026-10-20 | Bot-Stufe 3 statt 4 in öffentlichen Runden. | Drei Bots gleichzeitig gegen einen Neuling waren in Tests nach unter einer Minute vorbei. |
