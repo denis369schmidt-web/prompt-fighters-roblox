@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -60,20 +61,31 @@ function Hud.start()
 	gui.IgnoreGuiInset = true
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-	local timer = label(gui, "", UDim2.fromOffset(160, 50), UDim2.new(0.5, -80, 0, 18))
+	local timer = label(gui, "", UDim2.fromOffset(120, 34), UDim2.new(0.5, -60, 0, 14))
 	local banner = label(gui, "", UDim2.new(1, 0, 0, 110), UDim2.new(0, 0, 0.32, 0))
 	banner.TextColor3 = Color3.fromRGB(255, 225, 70)
 	local subBanner = label(gui, "", UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0.32, 112))
 
+	-- Everything shrinks on small screens (phones) so the fight stays visible.
+	local uiScale = Instance.new("UIScale")
+	uiScale.Parent = gui
+	local function rescale()
+		local view = workspace.CurrentCamera.ViewportSize
+		uiScale.Scale = math.clamp(math.min(view.X / 1280, view.Y / 760), 0.6, 1)
+	end
+	rescale()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+
+	-- Damage cards: one slim row along the bottom edge, below the stage.
 	local cardRow = Instance.new("Frame")
 	cardRow.BackgroundTransparency = 1
-	cardRow.Size = UDim2.new(1, 0, 0, 92)
-	cardRow.Position = UDim2.new(0, 0, 1, -104)
+	cardRow.Size = UDim2.new(1, 0, 0, 58)
+	cardRow.Position = UDim2.new(0, 0, 1, -64)
 	cardRow.Parent = gui
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.Padding = UDim.new(0, 12)
+	layout.Padding = UDim.new(0, 10)
 	layout.Parent = cardRow
 
 	local cards: { Card } = {}
@@ -84,39 +96,47 @@ function Hud.start()
 		end
 		table.clear(cards)
 		for i, slot in MatchState.slots do
+			local mine = i == MatchState.mySlot
+			local slotColor = Color3.fromHex(Visuals.SLOT_COLORS[i] or "#FFFFFF")
 			local frame = Instance.new("Frame")
-			frame.Size = UDim2.fromOffset(170, 88)
+			frame.Size = UDim2.fromOffset(if mine then 168 else 148, 54)
 			frame.BackgroundColor3 = Color3.fromRGB(16, 14, 30)
-			frame.BackgroundTransparency = 0.15
+			frame.BackgroundTransparency = if mine then 0.15 else 0.4
 			frame.LayoutOrder = i
 			frame.Parent = cardRow
-			corner(frame, 10)
+			corner(frame, 8)
 			local stroke = Instance.new("UIStroke")
-			stroke.Color = Color3.fromHex(Visuals.SLOT_COLORS[i] or "#FFFFFF")
-			stroke.Thickness = 3
+			stroke.Color = slotColor
+			stroke.Thickness = if mine then 3 else 1.5
 			stroke.Parent = frame
 			local name = label(
 				frame,
-				(if slot.userId then `P{i} ` else "CPU ") .. slot.name,
-				UDim2.new(1, -12, 0, 18),
-				UDim2.fromOffset(6, 4)
+				(if mine then "DU · " elseif slot.userId then "" else "CPU · ") .. slot.name,
+				UDim2.new(1, -12, 0, 14),
+				UDim2.fromOffset(6, 3),
+				13
 			)
 			name.TextXAlignment = Enum.TextXAlignment.Left
-			local percent = label(frame, "0%", UDim2.new(1, -12, 0, 40), UDim2.fromOffset(6, 22))
+			name.TextTruncate = Enum.TextTruncate.AtEnd
+			name.TextColor3 = slotColor
+			local percent = label(frame, "0%", UDim2.new(0.6, 0, 0, 30), UDim2.fromOffset(6, 17), 28)
 			percent.TextXAlignment = Enum.TextXAlignment.Left
-			local stocks = label(frame, "", UDim2.new(0.5, 0, 0, 18), UDim2.new(0.5, -6, 0, 30))
+			local stocks = label(frame, "", UDim2.new(0.4, -6, 0, 30), UDim2.new(0.6, 0, 0, 17), 14)
 			stocks.TextXAlignment = Enum.TextXAlignment.Right
+			stocks.TextColor3 = slotColor
 			local barBack = Instance.new("Frame")
-			barBack.Size = UDim2.new(1, -12, 0, 8)
-			barBack.Position = UDim2.fromOffset(6, 70)
+			barBack.Size = UDim2.new(1, -12, 0, 4)
+			barBack.Position = UDim2.new(0, 6, 1, -7)
 			barBack.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+			barBack.BorderSizePixel = 0
 			barBack.Parent = frame
-			corner(barBack, 4)
+			corner(barBack, 2)
 			local bar = Instance.new("Frame")
 			bar.Size = UDim2.fromScale(0, 1)
 			bar.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
+			bar.BorderSizePixel = 0
 			bar.Parent = barBack
-			corner(bar, 4)
+			corner(bar, 2)
 			cards[i] = { frame = frame, percent = percent, stocks = stocks, super = bar, name = name }
 		end
 	end
@@ -169,6 +189,7 @@ function Hud.start()
 	end
 
 	-- Lobby: arena vote buttons (same as standing on a pad) and the button that reopens the picker.
+	local votedByButton = false
 	local voteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("VoteArena") :: RemoteEvent
 	local voteRow = Instance.new("Frame")
 	voteRow.BackgroundTransparency = 1
@@ -180,7 +201,7 @@ function Hud.start()
 	voteLayout.Padding = UDim.new(0, 6)
 	voteLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	voteLayout.Parent = voteRow
-	local voteTitle = label(gui, "ARENA-WAHL", UDim2.fromOffset(220, 26), UDim2.new(1, -232, 0, 50))
+	local voteTitle = label(gui, "ARENA WÄHLEN", UDim2.fromOffset(220, 26), UDim2.new(1, -232, 0, 50))
 	local voteButtons: { TextButton } = {}
 	for k = 1, 3 do
 		local b = Instance.new("TextButton")
@@ -198,6 +219,7 @@ function Hud.start()
 			local id = MatchState.options[k]
 			if id then
 				voteRemote:FireServer(id)
+				votedByButton = true
 			end
 		end)
 		voteButtons[k] = b
@@ -226,6 +248,66 @@ function Hud.start()
 		pickerToggle.Visible = inLobby and not open
 		pickerToggle.Text = if chosen then `{Fighters.get(chosen :: string).name} · ÄNDERN` else "KÄMPFER WÄHLEN"
 	end
+
+	-- Lobby guide: three steps on the left that tick off as the player does them.
+	local guide = Instance.new("Frame")
+	guide.Size = UDim2.fromOffset(280, 132)
+	guide.Position = UDim2.fromOffset(12, 80)
+	guide.BackgroundColor3 = Color3.fromRGB(16, 14, 30)
+	guide.BackgroundTransparency = 0.25
+	guide.Parent = gui
+	corner(guide, 10)
+	local guideTitle = label(guide, "SO GEHT'S", UDim2.new(1, -20, 0, 22), UDim2.fromOffset(10, 8), 18)
+	guideTitle.TextXAlignment = Enum.TextXAlignment.Left
+	guideTitle.TextColor3 = Color3.fromRGB(255, 225, 70)
+	local steps: { TextLabel } = {}
+	for k = 1, 3 do
+		local step = label(guide, "", UDim2.new(1, -20, 0, 26), UDim2.fromOffset(10, 6 + k * 30), 17)
+		step.TextXAlignment = Enum.TextXAlignment.Left
+		steps[k] = step
+	end
+
+	local function onPad(): boolean
+		local character = Players.LocalPlayer.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		local lobby = workspace:FindFirstChild("Lobby")
+		if root == nil or not root:IsA("BasePart") or lobby == nil then
+			return false
+		end
+		for k = 1, 3 do
+			local pad = lobby:FindFirstChild("VotePad" .. k)
+			if pad and pad:IsA("BasePart") then
+				local d = pad.Position - root.Position
+				if Vector2.new(d.X, d.Z).Magnitude <= pad.Size.Y / 2 then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	local function updateGuide()
+		local inLobby = MatchState.phase == "lobby"
+		guide.Visible = inLobby
+		if not inLobby then
+			return
+		end
+		local picked = chosen ~= nil
+		local voted = votedByButton or onPad()
+		steps[1].Text = (if picked then "✓  " else "1  ") .. "Kämpfer wählen"
+		steps[2].Text = (if voted then "✓  " else "2  ") .. "Auf ein Arena-Feld stellen"
+		steps[3].Text = if picked
+			then `3  Kampf startet in {math.max(0, math.ceil(MatchState.timer))} s`
+			else "3  Warten auf den Start"
+		steps[1].TextColor3 = if picked then Color3.fromRGB(120, 255, 160) else Color3.new(1, 1, 1)
+		steps[2].TextColor3 = if voted then Color3.fromRGB(120, 255, 160) else Color3.new(1, 1, 1)
+	end
+	task.spawn(function()
+		while gui.Parent do
+			updateGuide()
+			task.wait(0.25)
+		end
+	end)
 
 	local function showVotes()
 		local inLobby = MatchState.phase == "lobby" and #MatchState.options > 0
@@ -326,6 +408,11 @@ function Hud.start()
 		local t = event.type
 		if t == "phase" then
 			local inLobby = event.phase == "lobby"
+			-- Fewer Roblox menus over the fight: no backpack ever, player list only in the lobby.
+			pcall(function()
+				StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+				StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, inLobby)
+			end)
 			-- The picker opens by itself only while no fighter is chosen.
 			setPickerOpen(inLobby and (chosen == nil or picker.Visible))
 			showVotes()
@@ -338,10 +425,13 @@ function Hud.start()
 					showBanner(info.name, "ARENA", 1.6)
 				end
 			end
-			lastPhase = event.phase
 			if inLobby then
-				timer.Text = if chosen then `KAMPF IN {math.ceil(event.timer)}` else ""
+				timer.Text = "" -- the lobby guide shows the countdown
+				if lastPhase ~= "lobby" then
+					votedByButton = false
+				end
 			end
+			lastPhase = event.phase
 		elseif t == "go" then
 			showBanner("LOS!", nil, 0.8)
 		elseif t == "ring_out" and event.lives > 0 then
@@ -382,7 +472,7 @@ function Hud.start()
 		for i, f in snap.fighters do
 			local card = cards[i]
 			if card then
-				card.percent.Text = if f.state == "Defeated" then "—" else `{math.floor(f.percent)}%`
+				card.percent.Text = if f.state == "Defeated" then "RAUS" else `{math.floor(f.percent)}%`
 				card.percent.TextColor3 = percentColor(f.percent)
 				card.stocks.Text = string.rep("●", f.lives)
 				card.super.Size = UDim2.fromScale(math.clamp(f.super / Constants.MAX_SUPER, 0, 1), 1)

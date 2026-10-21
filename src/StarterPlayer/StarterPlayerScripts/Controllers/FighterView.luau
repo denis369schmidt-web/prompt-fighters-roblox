@@ -173,15 +173,17 @@ local function build()
 		local highlight = Instance.new("Highlight")
 		highlight.FillTransparency = 1
 		highlight.OutlineColor = slotColor
-		highlight.OutlineTransparency = 0.2
+		highlight.OutlineTransparency = if i == MatchState.mySlot then 0 else 0.55
 		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 		highlight.Parent = model
 
 		local head = model:FindFirstChild("Head") or root
+		-- Small marker above the head: "DU" for your own fighter, a colored arrow for everyone else
+		-- (the color matches their damage card at the bottom).
+		local mine = i == MatchState.mySlot
 		local tag = Instance.new("BillboardGui")
-		tag.Size = UDim2.fromOffset(90, 22)
-		-- Staggered heights so tags of fighters standing close together don't cover each other.
-		tag.StudsOffset = Vector3.new(0, 2.2 + ((i - 1) % 2) * 1.1, 0)
+		tag.Size = if mine then UDim2.fromOffset(56, 30) else UDim2.fromOffset(22, 18)
+		tag.StudsOffset = Vector3.new(0, 2.4, 0)
 		tag.AlwaysOnTop = true
 		tag.LightInfluence = 0
 		tag.Adornee = head :: BasePart
@@ -193,7 +195,7 @@ local function build()
 		label.TextScaled = true
 		label.TextColor3 = slotColor
 		label.TextStrokeTransparency = 0.2
-		label.Text = if slot.player then `P{i}` else `CPU {i}`
+		label.Text = if mine then "DU\n▼" else "▼"
 		label.Parent = tag
 
 		model.Parent = f

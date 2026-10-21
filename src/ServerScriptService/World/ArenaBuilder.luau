@@ -280,7 +280,7 @@ local STYLES: { [string]: StageStyle } = {
 	),
 	colosseum = style(
 		rgb(176, 146, 104),
-		rgb(214, 186, 132),
+		rgb(184, 156, 110),
 		Enum.Material.Sandstone,
 		Enum.Material.Sand,
 		0,
@@ -436,7 +436,7 @@ local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 			ctx.accent,
 			Enum.Material.Neon
 		)
-		under.Transparency = 0.6
+		under.Transparency = 0.82
 		local surface = Instance.new("SurfaceLight")
 		surface.Face = Enum.NormalId.Bottom
 		surface.Color = ctx.accent
@@ -873,10 +873,10 @@ MOTIFS.colosseum = function(ctx)
 	ground(ctx, rgb(214, 186, 132), Enum.Material.Sand, -30)
 	local stone = rgb(196, 170, 128)
 	-- A half ring of arched walls in two tiers.
-	local radius = 110
+	local radius = 120
 	for k = -9, 9 do
-		local angle = k * 0.16
-		local x, z = math.sin(angle) * radius, -math.cos(angle) * radius + 30
+		local angle = k * 0.1 -- +-0.9 rad: the whole arc stays well behind the fight
+		local x, z = math.sin(angle) * radius, -math.cos(angle) * radius + 20
 		local facing = CFrame.new(at(x, 0, z)) * CFrame.Angles(0, -angle, 0)
 		for tier = 0, 1 do
 			local y = -30 + tier * 24
@@ -1470,9 +1470,9 @@ local SKIES: { [string]: Sky } = {
 	city_roof = { clock = 0, exposure = 0.4, haze = 0.7, density = 0.15 },
 	scifi_city = { clock = 0, exposure = 0.4, haze = 0.5, density = 0.12 },
 	temple = { clock = 0, exposure = 0.5, haze = 0.8, density = 0.18 },
-	dojo = { clock = 17.6, exposure = 0.2, haze = 0.3, density = 0.08 },
-	colosseum = { clock = 17.2, exposure = 0.1, haze = 1, density = 0.15 },
-	stadium = { clock = 17.8, exposure = 0.2, haze = 0.6, density = 0.1 },
+	dojo = { clock = 17.6, exposure = 0, haze = 0.3, density = 0.08 },
+	colosseum = { clock = 17.2, exposure = -0.15, haze = 1, density = 0.15 },
+	stadium = { clock = 17.8, exposure = 0, haze = 0.6, density = 0.1 },
 	mountains = { clock = 0, exposure = 0.6, haze = 0.4, density = 0.1 },
 	industrial = { clock = 0, exposure = 0.5, haze = 0.8, density = 0.2 },
 	foundry = { clock = 0, exposure = 0.3, haze = 1.5, density = 0.25 },
@@ -1526,7 +1526,7 @@ function ArenaBuilder.applyLighting(theme: ArenaThemes.Theme)
 		atmosphere.Parent = Lighting
 	end
 	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = if day then 0.6 else 1
+	bloom.Intensity = if day then 0.35 else 0.8
 	bloom.Size = 28
 	bloom.Threshold = if day then 0.95 else 0.85
 	bloom.Parent = Lighting

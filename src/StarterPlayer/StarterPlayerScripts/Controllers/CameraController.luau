@@ -12,8 +12,8 @@ local MatchState = require(script.Parent.Parent.State.MatchState)
 
 local M = Visuals.STUDS_PER_METER
 local BASE_Y = Visuals.STAGE_Y
-local MIN_DISTANCE = 34
-local MAX_DISTANCE = 80
+local MIN_DISTANCE = 27
+local MAX_DISTANCE = 62
 local FOLLOW = 5
 
 local CameraController = {}
@@ -56,7 +56,7 @@ local function frame(dt: number)
 		end
 		local spread = math.max(maxX - minX, (maxY - minY) * 1.6)
 		targetFocus = Vector3.new((minX + maxX) / 2 * M, BASE_Y + ((minY + maxY) / 2 + 1.6) * M, 0)
-		targetDistance = math.clamp(MIN_DISTANCE + spread * M * 1.1, MIN_DISTANCE, MAX_DISTANCE)
+		targetDistance = math.clamp(MIN_DISTANCE + spread * M * 0.95, MIN_DISTANCE, MAX_DISTANCE)
 	else
 		local t = os.clock() * 0.15
 		targetFocus = Vector3.new(math.sin(t) * 18, BASE_Y + 10, 0)

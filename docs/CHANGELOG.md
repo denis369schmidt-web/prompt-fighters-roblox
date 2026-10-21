@@ -1,5 +1,14 @@
 # Changelog
 
+## Aufgeräumte Oberfläche (2026-10-21)
+
+- Schadens-Karten schmal am unteren Rand; die eigene Karte ist hervorgehoben („DU · Name“), Bots tragen „CPU“.
+- Über den Kämpfern nur noch „DU ▼“ für dich und ein farbiger Pfeil für die anderen (Farbe wie die Karte).
+- Kamera näher am Kampf, Figuren größer im Bild.
+- Lobby-Anleitung links („So geht's“) hakt Kämpferwahl und Arena-Feld ab und zeigt den Countdown.
+- Oberfläche skaliert auf kleinen Bildschirmen, Roblox-Spielerliste nur in der Lobby, kein Rucksack.
+- Kolosseum-Mauern stehen nicht mehr vor dem Kampf, Tag-Arenen blenden weniger, Plattform-Leuchten dezenter.
+
 ## Lobby und 23 Arenen (2026-10-20)
 
 - Begehbare Lobby: Spieler laufen mit ihrem Avatar über einen Neon-Platz, die 16 Startkämpfer stehen als Statuen auf Sockeln, ein großer Bildschirm zeigt Countdown und Bereitschaft.
