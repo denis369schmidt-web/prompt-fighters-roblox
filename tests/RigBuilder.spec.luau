@@ -41,6 +41,37 @@ describe("RigBuilder", function()
 				end
 			end
 			expect(parts).toBeGreaterThan(18)
+			-- Sculpted, but cheap: every visible piece is a massless decoration welded to an invisible R15 bone,
+			-- the rig stays inside the part budget and stands on the floor (feet at y = 0).
+			local visible, lowest = 0, math.huge
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") and d.Transparency < 1 then
+					visible += 1
+					expect(d.Massless).toBe(true)
+					assert(d:FindFirstChildOfClass("WeldConstraint"), `{id}: {d.Name} not welded`)
+					local s = d.Size
+					for _, corner in
+						{
+							Vector3.new(-1, -1, -1),
+							Vector3.new(1, -1, -1),
+							Vector3.new(-1, -1, 1),
+							Vector3.new(1, -1, 1),
+							Vector3.new(-1, 1, -1),
+							Vector3.new(1, 1, -1),
+							Vector3.new(-1, 1, 1),
+							Vector3.new(1, 1, 1),
+						}
+					do
+						local p = d.CFrame * (corner * s / 2)
+						lowest = math.min(lowest, p.Y)
+					end
+				end
+			end
+			assert(visible <= RigBuilder.PART_BUDGET, `{id}: {visible} parts (budget {RigBuilder.PART_BUDGET})`)
+			assert(math.abs(lowest) < 0.06, `{id}: lowest point at y = {lowest}`)
+			for _, bone in { "Head", "UpperTorso", "LowerTorso", "RightHand", "LeftFoot" } do
+				expect(model:FindFirstChild(bone).Transparency).toBe(1)
+			end
 			-- Data-driven gear lands on the rig with every piece (named parts exist).
 			for _, gear in Looks.get(id).gear do
 				for _, d in (GearData :: any)[gear] or {} do

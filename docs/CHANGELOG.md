@@ -1,5 +1,20 @@
 # Changelog
 
+## Neue Kämpfer-Modelle (2026-10-30)
+
+- Alle 16 Startkämpfer neu modelliert, weiterhin nur aus Parts (keine Meshes): Kapsel-Glieder mit Kugelgelenken,
+  V-förmiger Oberkörper, sichtbarer Hals, Fäuste mit Knöcheln und Daumen, Stiefel mit Sohle und Kappe,
+  runder Kopf. Körperbau leicht/mittel/schwer (`Looks.BUILDS`).
+- Eigene Silhouette pro Kämpfer: Felsbrocken und Glutrisse (MAGMOR), Hörnerhelm, Flügel und Schwanz (TEMPLAR),
+  Flammenkamm und Neon-Flügel (SCARLET), Visier, Raketen und Reaktor (CYBORG MECH), Vollplatte mit Federbusch,
+  Wappenrock und Drachenschild (CARDINAL), Flügelhelm, Zöpfe und Lanze (BOLTAR), fünf Fuchsschwänze und Sterne
+  (CELESTIAL FOX), Kapuze, Knochenschmuck und Seelenlicht (NEKRA), Kapuze, Maske und Blitz-Schal (VOLT NINJA) usw.
+- Gesichter: große Augen mit Iris, Pupille und Glanzpunkt, Lidstrich (Wimpern), geformte Brauen, Nase,
+  Mundformen (Grinsen, Lächeln, Schmunzeln …), Wangenröte; folgen der Kopfrundung.
+- Ausrüstung als Daten mit Generatoren (Kette, Fächer, Ring, Spiegeln, Spitze) für Schwänze, Umhänge, Flügel,
+  Röcke und Kronen; 88–119 Teile pro Kämpfer (Test hält das Budget).
+- Vorschau: `export-scene.luau portrait <ids> <winkel>` für Nahaufnahmen.
+
 ## Animationen mit Gewicht (2026-10-30)
 
 - Angriffe als Keyframes mit Zeit in der Phase (`Visual/Pose`): Ausholen, schneller Schlag mit Überschwinger,

@@ -336,8 +336,8 @@ Looks.BY_ID = {
 	-- Artillery mech: boxy armored head with a visor, missile pods, pistons, glowing reactor core and big fists.
 	cyborg_mech = {
 		skin = "#A8B2BE",
-		primary = "#76808E",
-		secondary = "#454B55",
+		primary = "#8E98A6",
+		secondary = "#5A616C",
 		glow = "#22D3EE",
 		material = "Metal",
 		skinMaterial = "Metal",
@@ -363,7 +363,7 @@ Looks.BY_ID = {
 		gear = { "hood", "robe", "bone_armor", "skull_staff", "soul_orbs" },
 		glowEyes = true,
 		face = { eyes = "glow", brows = "angry", mouth = "smirk", lashes = true },
-		hair = "#1A1428",
+		hair = "#4A2E6E",
 		accent = "#E8E4D8",
 		forearms = "primary*0.8",
 		gloves = "#E8E4D8*0.75",

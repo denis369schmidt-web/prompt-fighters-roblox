@@ -94,10 +94,11 @@ local function attach(
 	shape: string?,
 	transparency: number?
 ): BasePart?
-	local bone = ctx.parts[boneName]
-	if bone == nil then
+	local found: BasePart? = ctx.parts[boneName]
+	if not found then
 		return nil
 	end
+	local bone = found :: BasePart
 	local p: BasePart
 	if shape == "Wedge" then
 		p = Instance.new("WedgePart")
@@ -294,7 +295,6 @@ local function sculpt(ctx: Ctx)
 	local look, b = ctx.look, ctx.build
 	local skinMat = material(look.skinMaterial or "SmoothPlastic")
 	local clothMat = material(look.material or "SmoothPlastic")
-	local skin = color(look.skin)
 	local top = tone(look, "primary")
 	local sleeves = tone(look, look.sleeves or "primary")
 	local forearms = tone(look, look.forearms or look.sleeves or "primary")
@@ -721,7 +721,7 @@ function RigBuilder.build(fighterId: string): Model
 		scales[sideName .. "LowerLeg"] = leg
 		scales[sideName .. "Foot"] = Vector3.new(s.width * b.leg, s.height, s.depth) * b.foot
 	end
-	local ho = look.headOffset or { 0, 0.3, 0 }
+	local ho: { number } = look.headOffset or { 0, 0.3, 0 }
 	local ctx: Ctx = {
 		look = look,
 		build = b,
