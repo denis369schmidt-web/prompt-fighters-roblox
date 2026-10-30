@@ -50,3 +50,5 @@ Format: Datum, Entscheidung, Grund. Umkehrbare Standardentscheidungen, die ohne 
 | 2026-10-30 | Kampf-XP 60 Grundwert + KOs, Schaden, Finisher, Sieg (max. 260); Münzen = XP/4 × Notenfaktor (`Profile.applyMatch`). | Wie Godot `end_match`: jeder Kampf lohnt sich, gutes Spielen mehr. |
 | 2026-10-30 | Kaufen nur mit Münzen und mit Bestätigung (zweites Tippen). Robux-Käufe kommen mit dem Shop-Schritt. | Fair und ohne Fehlkäufe; kein Pay-to-Win. |
 | 2026-10-30 | Vorschau-Renderer (three.js, headless Chromium) aus den Builder-Daten. | Bilder ohne Roblox Studio, für Prüfung und Feedback; nur Annäherung an die echte Grafik. |
+| 2026-10-30 | Lokaler Hitstop nur in der Darstellung (`Juice.frozen(slot)` in `FighterView.render`), Länge wie Server-Hitstop, max. 120 ms; Zeitlupe (`Juice.timeScale`) wirkt auf Effekte und Kamera. | Server-Logik bleibt unberührt; der Halt deckt sich mit dem Server-Hitstop, daher kein Nachziehen. |
+| 2026-10-30 | Effekte ohne hochgeladene Assets: Partikel aus Pools, Beams, Gui-Formen; Sounds nur `rbxasset://sounds/…` aus dem Client. | Keine fremden Asset-IDs, keine Lizenzfragen; Pools und Obergrenzen halten Effekte billig. |

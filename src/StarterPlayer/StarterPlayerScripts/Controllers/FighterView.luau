@@ -16,6 +16,9 @@ local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRun
 local Simulation = require(Shared:WaitForChild("Combat"):WaitForChild("Simulation"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local Effects = require(script.Parent.Effects)
+local Juice = require(script.Parent.Juice)
+local Sfx = require(script.Parent.Sfx)
+local GameFeel = require(Shared:WaitForChild("Visual"):WaitForChild("GameFeel"))
 
 local M = Visuals.STUDS_PER_METER
 local BASE_Y = Visuals.STAGE_Y
@@ -85,10 +88,25 @@ local function trailBetween(part: BasePart, a: Vector3, b: Vector3, color: Color
 	local trail = Instance.new("Trail")
 	trail.Attachment0 = att0
 	trail.Attachment1 = att1
-	trail.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
-	trail.Transparency = NumberSequence.new(0.1, 1)
+	-- White-hot edge into the fighter's glow, tapering and fading (strike / tumble trails).
+	trail.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(0.25, color:Lerp(Color3.new(1, 1, 1), 0.3)),
+		ColorSequenceKeypoint.new(1, color),
+	})
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.5, 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	trail.WidthScale = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(1, 0.15),
+	})
 	trail.LightEmission = 1
-	trail.Lifetime = lifetime
+	trail.LightInfluence = 0
+	trail.MinLength = 0.05
+	trail.Lifetime = lifetime * 1.4
 	trail.FaceCamera = true
 	trail.Enabled = false
 	trail.Parent = part
@@ -253,7 +271,7 @@ local function render(dt: number)
 	local blink = (t * 12) % 2 < 1
 	for i, f in snap.fighters do
 		local view = views[i]
-		if not view then
+		if not view or Juice.frozen(i) then -- Juice.frozen: hitstop hold (Controllers/Juice)
 			continue
 		end
 		local target = FighterView.toWorld(f.x, f.y)
@@ -369,65 +387,330 @@ local function chest(view: View): Vector3
 	return view.position + Vector3.new(0, view.standHeight + 1, 0)
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- Game feel ("juice") for match events. Everything below is display only and runs beside render():
+-- render() skips a fighter while Juice.frozen(slot) is true, and juiceStep() shakes the held fighters and
+-- draws dust and slash arcs from the snapshot.
+
+local WHITE = Color3.new(1, 1, 1)
+local SHIELD_BLUE = Color3.fromRGB(150, 220, 255)
+local PARRY_GOLD = Color3.fromRGB(255, 240, 160)
+local CLASH_GOLD = Color3.fromRGB(255, 230, 120)
+local BREAK_BLUE = Color3.fromRGB(120, 200, 255)
+
+-- Slash arc per move kind (Pose.MOVE_KIND): angle (degrees, + = upward), radius (studs), heavy look.
+local ARCS: { [string]: { angle: number, radius: number, heavy: boolean, twin: boolean? } } = {
+	punch = { angle = 0, radius = 2.4, heavy = false },
+	kick = { angle = 15, radius = 2.8, heavy = false },
+	heavy = { angle = 10, radius = 3.6, heavy = true },
+	upper = { angle = 90, radius = 3.2, heavy = false },
+	low = { angle = -45, radius = 3, heavy = false },
+	stomp = { angle = -90, radius = 2.8, heavy = false },
+	spin = { angle = 0, radius = 3, heavy = false, twin = true },
+	backkick = { angle = 180, radius = 2.8, heavy = false },
+}
+
+-- Fighters held by a hitstop get a small vibration (and, after a clash, a push away from the contact point).
+type Shaker = { base: CFrame, dir: Vector3, amp: number, push: number, started: number, length: number }
+local shakers: { [number]: Shaker } = {}
+
+-- Per-slot snapshot memory for dust and slash arcs.
+type Track = { grounded: boolean, stage: string, move: string, x: number, y: number, vy: number, runPuff: number }
+local tracks: { [number]: Track } = {}
+
+-- Hit direction in the fight plane from the attacker toward the target (unit vector).
+local function hitDirection(attacker: View?, target: View): Vector3
+	if attacker then
+		local d = target.position - attacker.position
+		d = Vector3.new(d.X, d.Y * 0.5 + 0.15 * math.abs(d.X), 0)
+		if d.Magnitude > 1e-3 then
+			return d.Unit
+		end
+	end
+	return Vector3.yAxis
+end
+
+local function freeze(slot: number, seconds: number, dir: Vector3, amp: number, push: number?)
+	local view = views[slot]
+	if view == nil or seconds <= 0 then
+		return
+	end
+	local current = shakers[slot]
+	local base = if current and Juice.frozen(slot) then current.base else view.root.CFrame
+	Juice.hold(seconds, { slot })
+	shakers[slot] = { base = base, dir = dir, amp = amp, push = push or 0, started = os.clock(), length = seconds }
+end
+
+-- White impact flash on the fighter's highlight right away (render() takes over again after the hold).
+local function whiteFlash(view: View, seconds: number)
+	view.flash = math.max(view.flash, seconds)
+	view.highlight.FillColor = WHITE
+	view.highlight.FillTransparency = 0.05
+end
+
+local function onHit(event: { [string]: any })
+	local target = views[event.target]
+	if target == nil then
+		return
+	end
+	local attacker = views[event.actor]
+	local damage = event.damage or 5
+	local impact = GameFeel.impact(damage, event.impulse, event.superHit, event.special)
+	local color = if attacker then attacker.glow else Color3.new(1, 0.9, 0.5)
+	local dir = hitDirection(attacker, target)
+	local at = chest(target) - dir * 0.6 + Vector3.new(0, 0, 1.5)
+	local s = impact.strength
+
+	whiteFlash(target, 0.06 + s * 0.08)
+	Effects.sparksToward(at, dir, color, 8 + damage * 1.2, 30 + s * 50)
+	Effects.impactStar(at, if impact.tier == "light" then WHITE else color, 7 + s * 14, 0.16 + s * 0.12)
+	Effects.damageNumber(chest(target) + Vector3.new(0, 2.6, 0), damage)
+	if event.armored then
+		Effects.ring(at, GOLD, 8, 0.2, 0.3)
+		Sfx.play("metal", 0.7, 0.8)
+		return
+	end
+
+	if impact.tier ~= "light" then
+		Effects.shockwave(at, color, 9 + damage * 0.7, 0.3 + s * 0.15)
+		Effects.flashBall(at, color, 4 + damage * 0.3, 0.2)
+	end
+	if impact.tier == "heavy" then
+		Effects.impactFrame(s, 0.04 + s * 0.04)
+		Effects.speedLines(at, color, s)
+		Effects.debris(at, dir, color, 4 + math.floor(s * 6))
+		Effects.sparks(at, color, 20 + damage, 50)
+		Sfx.play("heavy", 0.6 + s * 0.5, 1.1 - s * 0.25)
+	else
+		Sfx.play("slash", 0.5 + s, 1 + (1 - s) * 0.2)
+	end
+	if event.superHit then
+		Effects.screenFlash(color, 0.2, 0.8)
+		Effects.ring(at, WHITE, 22 + damage, 0.35, 0.5)
+	end
+
+	-- Local hitstop: both fighters hold; the target vibrates along the hit direction.
+	if impact.hold > 0 then
+		freeze(event.target, impact.hold, dir, 0.25 + s * 0.45)
+		if event.actor and event.actor ~= event.target then
+			freeze(event.actor, impact.hold, dir, 0.05)
+		end
+	end
+
+	if attacker and (event.combo or 0) >= 2 then
+		local head = attacker.model:FindFirstChild("Head")
+		Effects.combo(event.actor, if head and head:IsA("BasePart") then head else attacker.root, event.combo, color)
+	end
+end
+
+local function onRingOut(event: { [string]: any })
+	local view = views[event.actor]
+	local color = if view then view.glow else WHITE
+	local x = math.clamp(event.x or 0, -15.5, 15.5)
+	local y = math.clamp(event.y or 0, -5.5, 12.5)
+	local dx, dy = GameFeel.koDirection(x, y)
+	-- Match-deciding KO: last stock gone and at most one fighter left.
+	local decisive = false
+	if (event.lives or 0) <= 0 then
+		local standing = 0
+		local snap = MatchState.snapshot
+		if snap then
+			for i, f in snap.fighters do
+				if i ~= event.actor and f.state ~= "Defeated" and f.lives > 0 then
+					standing += 1
+				end
+			end
+		end
+		decisive = standing <= 1
+	end
+	Effects.knockout(FighterView.toWorld(x, y), color, Vector3.new(dx, dy, 0), decisive)
+	Sfx.play("heavy", 1, 0.6)
+	Sfx.play("slash", 0.8, 0.7)
+	if decisive then
+		Effects.koBanner("K.O.", color)
+		Juice.hold(0.12)
+	end
+	Effects.comboEnd(event.actor)
+end
+
+-- Dust, landing puffs and slash arcs from snapshot changes.
+local function trackFighters(snap: MatchRunner.NetSnapshot, dt: number)
+	for i, f in snap.fighters do
+		local view = views[i]
+		if view == nil or view.position == Vector3.zero then
+			continue
+		end
+		local t = tracks[i]
+		if t == nil then
+			t = {
+				grounded = f.grounded,
+				stage = f.moveStage,
+				move = f.move,
+				x = view.position.X,
+				y = view.position.Y,
+				vy = 0,
+				runPuff = 0,
+			}
+			tracks[i] = t
+		end
+		local track = t :: Track
+		local alive = f.state ~= "Defeated"
+		local feet = view.position + Vector3.new(0, 0.3, 0)
+		local vx = (view.position.X - track.x) / dt / M
+		track.x = view.position.X
+		-- Smoothed vertical speed (m/s) of the drawn fighter, for landing dust.
+		local vy = (view.position.Y - track.y) / dt / M
+		track.y = view.position.Y
+		if not f.grounded then
+			track.vy += (vy - track.vy) * 0.4
+		end
+
+		-- Landing: a dust puff that grows with the fall speed, plus a ground ring for hard landings.
+		if alive and f.grounded and not track.grounded then
+			local fall = math.clamp(-track.vy / 14, 0, 1)
+			track.vy = 0
+			Effects.dust(feet, 4 + fall * 10, 6 + fall * 10)
+			if fall > 0.45 then
+				Effects.groundRing(feet, WHITE, 5 + fall * 6, 0.25)
+			end
+		end
+		-- Running: small puffs kicked up behind the feet.
+		track.runPuff -= dt
+		if alive and f.grounded and f.state == "Ready" and math.abs(vx) > 5.5 and track.runPuff <= 0 then
+			track.runPuff = 0.11
+			Effects.dust(feet, 1, 4, Vector3.new(-math.sign(vx), 0.35, 0))
+		end
+		-- Slash arc when a strike turns active.
+		if alive and f.moveStage == "active" and (track.stage ~= "active" or track.move ~= f.move) then
+			local kind = Pose.MOVE_KIND[f.move]
+			local arc = if kind then ARCS[kind] else nil
+			if arc then
+				local facing = if f.facing < 0 then -1 else 1
+				local center = chest(view) + Vector3.new(facing * 0.8, 0, 0.8)
+				local radius = arc.radius * view.scale
+				Effects.slashArc(center, facing, view.glow, radius, arc.angle, arc.heavy)
+				if arc.twin then
+					Effects.slashArc(center, facing, view.glow, radius, arc.angle + 180, false)
+				end
+			end
+		end
+		track.grounded, track.stage, track.move = f.grounded, f.moveStage, f.move
+	end
+end
+
+-- Vibration of held fighters, then dust and slash arcs.
+local function juiceStep(dt: number)
+	local now = os.clock()
+	for slot, s in shakers do
+		local view = views[slot]
+		if view == nil or not Juice.frozen(slot) then
+			shakers[slot] = nil
+			continue
+		end
+		local f = math.clamp((now - s.started) / math.max(0.01, s.length), 0, 1)
+		local wobble = math.sin(now * 95) * s.amp * (1 - f)
+		view.root.CFrame = s.base + s.dir * (wobble - s.push * math.sin(f * math.pi))
+	end
+	local snap = MatchState.snapshot
+	if snap and dt > 0 then
+		trackFighters(snap, dt)
+	end
+end
+
+local WORDS: { [string]: string } = {
+	marked = "MARKIERT",
+	freeze_hit = "EINGEFROREN",
+	counter = "KONTER!",
+	reflect = "ZURÜCK!",
+	bulwark_block = "GEBLOCKT",
+	heat_full = "KERNSCHMELZE BEREIT",
+	one_punch_ko = "EIN SCHLAG!",
+	hexed = "VERFLUCHT",
+	leashed = "ANGEKETTET",
+	crown_shift = "ELEMENTWECHSEL",
+	catch = "GEFANGEN",
+}
+local ON_TARGET: { [string]: boolean } = { marked = true, freeze_hit = true, hexed = true, leashed = true }
+
 function FighterView.start()
 	MatchState.onEvent(function(event)
 		local kind = event.type
 		if kind == "phase" then
+			table.clear(shakers)
+			table.clear(tracks)
+			Effects.reset()
 			if event.phase == "match" then
 				build()
 			elseif event.phase == "lobby" then
 				clear()
 			end
 		elseif kind == "hit" then
-			local target = views[event.target]
-			local attacker = views[event.actor]
-			if target then
-				target.flash = 0.1
-				local color = if attacker then attacker.glow else Color3.new(1, 0.9, 0.5)
-				local damage = event.damage or 5
-				Effects.sparks(chest(target), color, 6 + damage, 20 + damage * 1.5)
-				Effects.damageNumber(chest(target) + Vector3.new(0, 2.5, 0), damage)
-				if (event.impulse or 0) > 9 or event.superHit then
-					Effects.ring(chest(target), color, 10 + damage * 0.5)
-					Effects.flashBall(chest(target), color, 6 + damage * 0.3, 0.25)
-				end
-			end
+			onHit(event)
 		elseif kind == "block" then
 			local target = views[event.target]
 			if target then
-				Effects.sparks(chest(target), Color3.fromRGB(150, 220, 255), 8, 18)
+				local dir = hitDirection(views[event.actor], target)
+				local hit = chest(target) - dir * 3
+				Effects.shieldRipple(chest(target), hit, SHIELD_BLUE, 7)
+				Effects.sparksToward(hit, -dir + Vector3.new(0, 0.6, 0), SHIELD_BLUE, 10, 26)
+				Sfx.play("metal", 0.5, 1.2)
 			end
 		elseif kind == "parry" then
 			local view = views[event.actor]
 			if view then
-				Effects.ring(chest(view), Color3.new(1, 1, 1), 14, 0.25)
-				Effects.flashBall(chest(view), Color3.fromRGB(255, 240, 160), 6, 0.2)
+				local other = views[event.target]
+				local p = if other then (chest(view) + chest(other)) / 2 else chest(view)
+				Effects.impactStar(p, PARRY_GOLD, 22, 0.3)
+				Effects.shockwave(p, PARRY_GOLD, 16, 0.3)
+				Effects.flashBall(p, PARRY_GOLD, 6, 0.2)
+				Effects.sparks(p, WHITE, 24, 40)
+				Effects.screenFlash(WHITE, 0.12, 0.6)
+				Effects.label(chest(view) + Vector3.new(0, 3.5, 0), "PARADE!", PARRY_GOLD)
+				Juice.slowmo(0.3, 0.35)
+				Juice.hold(0.12, { event.actor, event.target })
+				Sfx.play("metal", 0.9, 1)
 			end
 		elseif kind == "clash" then
-			local p = FighterView.toWorld(event.x, event.y)
-			Effects.sparks(p, Color3.new(1, 1, 1), 30, 40)
-			Effects.ring(p, Color3.fromRGB(255, 230, 120), 16, 0.3)
+			local p = FighterView.toWorld(event.x, event.y) + Vector3.new(0, 0, 1.5)
+			Effects.sparksToward(p, Vector3.new(-1, 0.7, 0), WHITE, 18, 50)
+			Effects.sparksToward(p, Vector3.new(1, 0.7, 0), CLASH_GOLD, 18, 50)
+			Effects.impactStar(p, CLASH_GOLD, 18, 0.25)
+			Effects.shockwave(p, CLASH_GOLD, 18, 0.3)
+			Sfx.play("metal", 1, 0.9)
+			-- Both fighters are pushed back from the contact point during a short hold (visual only).
+			for _, slot in { event.actor, event.target } do
+				local view = views[slot]
+				if view then
+					local side = math.sign(view.position.X - p.X)
+					freeze(slot, 0.1, Vector3.new(if side == 0 then 1 else side, 0, 0), 0.15, -0.9)
+				end
+			end
 		elseif kind == "ring_out" then
-			local view = views[event.actor]
-			local x = math.clamp(event.x, -15.5, 15.5)
-			local y = math.clamp(event.y, -5.5, 12.5)
-			Effects.knockout(FighterView.toWorld(x, y), if view then view.glow else Color3.new(1, 1, 1))
+			onRingOut(event)
 		elseif kind == "shield_break" then
 			local view = views[event.actor]
 			if view then
-				Effects.sparks(chest(view), Color3.fromRGB(120, 200, 255), 40, 35)
-				Effects.ring(chest(view), Color3.fromRGB(120, 200, 255), 18)
+				Effects.shieldRipple(chest(view), chest(view), BREAK_BLUE, 9)
+				Effects.sparks(chest(view), BREAK_BLUE, 45, 40)
+				Effects.debris(chest(view), Vector3.yAxis, BREAK_BLUE, 8)
+				Effects.shockwave(chest(view), BREAK_BLUE, 20)
+				Effects.impactFrame(0.6, 0.06)
+				Sfx.play("metal", 1, 0.6)
 			end
 		elseif kind == "super_used" then
 			local view = views[event.actor]
 			if view then
-				Effects.flashBall(chest(view), view.glow, 12, 0.35)
+				Effects.flashBall(chest(view), view.glow, 14, 0.4)
+				Effects.shockwave(chest(view), view.glow, 26, 0.45)
+				Effects.speedLines(chest(view), view.glow, 0.7)
+				Effects.screenFlash(view.glow, 0.18, 0.5)
 			end
 		elseif kind == "signature" then
 			local view = views[event.actor]
 			if view then
 				local color = if type(event.color) == "string" then Color3.fromHex(event.color) else view.glow
-				Effects.flashBall(chest(view), color, 4, 0.2)
+				Effects.flashBall(chest(view), color, 5, 0.22)
+				Effects.ring(chest(view), color, 10, 0.25)
 				if event.name and event.name ~= "" then
 					Effects.label(chest(view) + Vector3.new(0, 4.5, 0), event.name, color)
 				end
@@ -438,54 +721,81 @@ function FighterView.start()
 				local from = FighterView.toWorld(event.fromX, event.fromY) + Vector3.new(0, view.standHeight, 0)
 				Effects.flashBall(from, view.glow, 6, 0.25)
 				Effects.streak(from, chest(view), view.glow, 0.6, 0.25)
+				Effects.ring(chest(view), view.glow, 9, 0.25)
 			end
 		elseif kind == "iai_cut" then
 			local view = views[event.actor]
 			if view then
 				local from = FighterView.toWorld(event.fromX, event.y) + Vector3.new(0, view.standHeight + 0.5, 0)
-				Effects.streak(from, chest(view), Color3.new(1, 1, 1), 1, 0.35)
-				Effects.screenFlash(Color3.new(1, 1, 1), 0.12)
+				Effects.streak(from, chest(view), view.glow, 2.2, 0.5)
+				Effects.streak(from, chest(view), WHITE, 1, 0.35)
+				Effects.screenFlash(WHITE, 0.12)
+				Effects.impactFrame(0.8, 0.08)
+				Sfx.play("slash", 1, 0.8)
 			end
 		elseif kind == "slam" then
 			local p = FighterView.toWorld(event.x, event.y)
 			local color = if type(event.color) == "string" then Color3.fromHex(event.color) else GOLD
-			Effects.ring(p + Vector3.new(0, 0.5, 0), color, (event.radius or 6) * M * 2, 0.45)
+			Effects.groundRing(p + Vector3.new(0, 0.4, 0), color, (event.radius or 6) * M * 2, 0.45)
+			Effects.ring(p + Vector3.new(0, 1, 0), color, (event.radius or 6) * M, 0.35)
 			Effects.sparks(p, color, 40, 45)
+			Effects.dust(p, 14, 18)
+			Effects.debris(p + Vector3.new(0, 0.5, 0), Vector3.yAxis, color, 6)
+			Sfx.play("heavy", 0.8, 0.7)
 		elseif kind == "swap" or kind == "yank" or kind == "lasso" then
 			local a, b = views[event.actor], views[event.target]
 			if a and b then
 				Effects.streak(chest(a), chest(b), a.glow, 0.4, 0.3)
 			end
 		elseif kind == "flashbang" then
-			Effects.screenFlash(Color3.new(1, 1, 1), 0.5)
+			Effects.screenFlash(WHITE, 0.5)
 		elseif kind == "war_horn" then
 			local view = views[event.actor]
 			if view then
-				Effects.ring(chest(view), GOLD, 30, 0.5)
+				Effects.shockwave(chest(view), GOLD, 30, 0.5)
+			end
+		elseif kind == "jump" or kind == "double_jump" then
+			local view = views[event.actor]
+			if view then
+				local feet = view.position + Vector3.new(0, 0.3, 0)
+				if kind == "double_jump" then
+					Effects.groundRing(feet, view.glow, 5, 0.22)
+					Effects.sparks(feet, view.glow, 6, 12)
+				else
+					Effects.dust(feet, 5, 8)
+				end
+				Sfx.play("jump", 0.8, if kind == "double_jump" then 1.2 else 1)
+			end
+		elseif kind == "dodge" or kind == "air_dash" then
+			local view = views[event.actor]
+			if view then
+				local snap = MatchState.snapshot
+				local f = if snap then snap.fighters[event.actor] else nil
+				if f and f.grounded then
+					local back = Vector3.new(if f.facing < 0 then 1 else -1, 0.3, 0)
+					Effects.dust(view.position + Vector3.new(0, 0.3, 0), 7, 14, back)
+				else
+					Effects.ring(chest(view), view.glow, 6, 0.2, 0.15)
+				end
+			end
+		elseif kind == "combo_end" then
+			Effects.comboEnd(event.actor)
+		elseif kind == "finisher" then
+			local view = views[event.target]
+			if view then
+				local actor = views[event.actor]
+				Effects.knockout(chest(view), if actor then actor.glow else view.glow, Vector3.yAxis, true)
+				Juice.hold(0.15)
+				Sfx.play("heavy", 1, 0.55)
 			end
 		else
-			local words = {
-				marked = "MARKIERT",
-				freeze_hit = "EINGEFROREN",
-				counter = "KONTER!",
-				reflect = "ZURÜCK!",
-				bulwark_block = "GEBLOCKT",
-				heat_full = "KERNSCHMELZE BEREIT",
-				one_punch_ko = "EIN SCHLAG!",
-				hexed = "VERFLUCHT",
-				leashed = "ANGEKETTET",
-				crown_shift = "ELEMENTWECHSEL",
-				catch = "GEFANGEN",
-			}
-			local word = words[kind]
-			local who = if kind == "marked"
-					or kind == "freeze_hit"
-					or kind == "hexed"
-					or kind == "leashed"
-				then views[event.target]
-				else views[event.actor]
+			local word = WORDS[kind]
+			local who = if ON_TARGET[kind] then views[event.target] else views[event.actor]
 			if word and who then
 				Effects.label(chest(who) + Vector3.new(0, 3.5, 0), word, who.glow)
+				if kind == "one_punch_ko" or kind == "counter" then
+					Effects.impactStar(chest(who), who.glow, 16, 0.25)
+				end
 			elseif kind == "rebirth_heal" and views[event.actor] then
 				local view = views[event.actor]
 				Effects.label(
@@ -497,17 +807,14 @@ function FighterView.start()
 			elseif (kind == "eagle_strike" or kind == "turbo_ram" or kind == "echo_strike") and views[event.actor] then
 				local view = views[event.actor]
 				local target = views[event.target]
-				Effects.sparks(if target then chest(target) else chest(view), view.glow, 14, 25)
-			end
-		end
-		if kind == "finisher" then
-			local view = views[event.target]
-			if view then
-				Effects.knockout(chest(view), views[event.actor] and views[event.actor].glow or view.glow)
+				local p = if target then chest(target) else chest(view)
+				Effects.sparks(p, view.glow, 14, 25)
+				Effects.impactStar(p, view.glow, 10, 0.18)
 			end
 		end
 	end)
 	RunService.RenderStepped:Connect(render)
+	RunService.RenderStepped:Connect(juiceStep)
 end
 
 return FighterView

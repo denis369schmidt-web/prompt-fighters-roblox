@@ -7,6 +7,11 @@ Godot-Modelle (Mixamo, Tripo-Exporte) werden **nicht** übernommen; der Importer
 
 | Datei | Quelle | Lizenz | Hinzugefügt |
 |---|---|---|---|
+| `rbxasset://sounds/swordslash.wav` (`Controllers/Sfx`) | Roblox built-in client sound | Teil des Roblox-Clients | 2026-10-30 |
+| `rbxasset://sounds/swordlunge.wav` (`Controllers/Sfx`) | Roblox built-in client sound | Teil des Roblox-Clients | 2026-10-30 |
+| `rbxasset://sounds/unsheath.wav` (`Controllers/Sfx`) | Roblox built-in client sound | Teil des Roblox-Clients | 2026-10-30 |
+| `rbxasset://sounds/action_jump.mp3` (`Controllers/Sfx`) | Roblox built-in client sound | Teil des Roblox-Clients | 2026-10-30 |
+| `rbxasset://textures/particles/smoke_main.dds` (`Controllers/Effects`, Staub) | Roblox built-in client texture | Teil des Roblox-Clients | 2026-10-30 |
 
 ## Marken-Check der Kämpfer (vor Launch erledigen)
 

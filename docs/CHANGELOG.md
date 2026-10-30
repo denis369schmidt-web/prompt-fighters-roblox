@@ -1,5 +1,22 @@
 # Changelog
 
+## Treffer-Gefühl („Juice“) (2026-10-30)
+
+- Treffer nach Stärke (`Visual/GameFeel`): leicht = Funken in Schlagrichtung + weißer Einschlag-Stern;
+  mittel/schwer zusätzlich Schockwelle, Bild-Halt (lokaler Hitstop 50–120 ms, `Juice.hold`/`Juice.frozen`) mit
+  Zittern des Getroffenen; schwer zusätzlich Impact-Frame (Kontrast), Speed-Lines und Splitter.
+- Kamera: Trauma-Wackeln mit Rauschen, Kick in Schlagrichtung, Zoom-Punch bei schweren Treffern, FOV-Puls beim
+  Super, Zeitlupe + Zoom auf den entscheidenden KO. „Reduzierte Bewegung“ von Roblox (oder Attribut
+  `ReduceShake`) dämpft Wackeln und Blitze; `Juice.SHAKE_SCALE` als Regler.
+- KO: Strahl vom Blast-Punkt quer über die Bühne, Stern-Blitz, Schockwellen, Bildblitz; beim letzten KO ein
+  „K.O.“-Banner.
+- Schlag-Bögen (Beam-Kurven) in der Leuchtfarbe des Kämpfers, schönere Spuren; Staub beim Laufen, Landen,
+  Springen und Ausweichen.
+- Schild-Welle beim Blocken, Parade-Blitz mit kurzer Zeitlupe, Clash-Funken mit Rückstoß beider Kämpfer.
+- Schadenszahlen poppen mit Überschwinger, Farbe nach Schaden; Combo-Zähler („3 HIT COMBO“) beim Angreifer.
+- Projektile mit weißem Kern, pulsierendem Halo, Funkenspur, Mündungsblitz und Einschlag.
+- Sounds nur aus dem Roblox-Client (`Controllers/Sfx`, abschaltbar).
+
 ## Fortschritt, Kämpfer-Shop und Vorschau-Bilder (2026-10-30)
 
 - Fortschritt wird gespeichert (DataStore): Münzen, Level mit Titel, Siege, Kämpfer-XP, freigeschaltete Kämpfer.

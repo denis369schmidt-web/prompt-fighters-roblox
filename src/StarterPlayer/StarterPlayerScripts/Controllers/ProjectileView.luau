@@ -2,7 +2,8 @@
 -- Draws the projectiles of signature specials: built from plain parts when the server announces one
 -- ("projectile" event), moved toward the positions of the Shots remote, removed with a small puff when it ends.
 -- The style from the server (shot, orb, column, storm, wall, creature ...) decides the look, the color comes
--- from the fighter's signature.
+-- from the fighter's signature. Shots and blades get a white-hot core, a pulsing halo, a tapered trail and a
+-- sparkle wake; they spawn with a muzzle flash and end with an impact burst.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -102,12 +103,57 @@ local function trail(p: BasePart, color: Color3, width: number, lifetime: number
 	local t = Instance.new("Trail")
 	t.Attachment0 = a0
 	t.Attachment1 = a1
-	t.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
-	t.Transparency = NumberSequence.new(0.2, 1)
+	t.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(0.3, color:Lerp(Color3.new(1, 1, 1), 0.25)),
+		ColorSequenceKeypoint.new(1, color),
+	})
+	t.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.05),
+		NumberSequenceKeypoint.new(0.6, 0.55),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	t.WidthScale = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(1, 0.1),
+	})
 	t.LightEmission = 1
-	t.Lifetime = lifetime
+	t.LightInfluence = 0
+	t.Lifetime = lifetime * 1.6
 	t.FaceCamera = true
 	t.Parent = p
+end
+
+-- Glow layers around a shot: a white core inside and a soft halo outside that pulses (see render).
+local function glowLayers(model: Model, main: BasePart, color: Color3, size: Vector3, ball: boolean)
+	-- The colored body turns see-through a little so the white core shines through it.
+	main.Transparency = math.max(main.Transparency, 0.3)
+	local core = part(model, "Core", size * 0.5, Color3.new(1, 1, 1))
+	core:SetAttribute("Follow", true)
+	local halo = part(model, "Halo", size * 1.7, color:Lerp(Color3.new(1, 1, 1), 0.15))
+	halo.Transparency = 0.78
+	halo:SetAttribute("Follow", true)
+	halo:SetAttribute("Pulse", size * 1.7)
+	if ball then
+		core.Shape = Enum.PartType.Ball
+		halo.Shape = Enum.PartType.Ball
+	end
+	-- Sparkle wake: small bright particles left behind.
+	local e = Instance.new("ParticleEmitter")
+	e.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	e.LightEmission = 1
+	e.LightInfluence = 0
+	e.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, math.min(size.X, size.Y) * 0.35),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	e.Transparency = NumberSequence.new(0, 1)
+	e.Lifetime = NumberRange.new(0.2, 0.45)
+	e.Rate = 30
+	e.Speed = NumberRange.new(0.5, 2.5)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Drag = 3
+	e.Parent = main
 end
 
 local function particles(p: BasePart, color: Color3, rate: number, size: number, speed: number, direction: Vector3?)
@@ -200,11 +246,13 @@ local function build(style: string, shape: string, color: Color3, size: number):
 		main = part(model, "Blade", Vector3.new(d * 0.35, d * 0.35, d * 2.2), color)
 		trail(main, color, d * 0.4, 0.15)
 		light(main, color, 8, 1.5)
+		glowLayers(model, main, color, main.Size, false)
 	else
 		main = part(model, "Ball", Vector3.one * d, color)
 		main.Shape = Enum.PartType.Ball
 		trail(main, color, d * 0.7, 0.2)
 		light(main, color, 10, 2)
+		glowLayers(model, main, color, main.Size, true)
 	end
 	model.PrimaryPart = main
 	model.Parent = container()
@@ -227,8 +275,13 @@ local function finish(id: number, puff: boolean)
 		return
 	end
 	shots[id] = nil
-	if puff then
-		Effects.sparks(shot.position, shot.color, 10, 16)
+	if puff and shot.position ~= Vector3.zero then
+		-- Impact burst scaled by the shot's size.
+		local d = math.max(0.35, shot.size * 2) * M
+		Effects.flashBall(shot.position, shot.color, d * 2.6, 0.25)
+		Effects.impactStar(shot.position, shot.color, 6 + d * 2, 0.2)
+		Effects.ring(shot.position, shot.color, d * 3.2, 0.3, 0.2)
+		Effects.sparks(shot.position, shot.color, 14 + d * 3, 22)
 	end
 	shot.model:Destroy()
 end
@@ -274,7 +327,14 @@ local function render(dt: number)
 		end
 		shot.main.CFrame = cf
 		for _, p in shot.model:GetChildren() do
-			if p:IsA("BasePart") and p ~= shot.main then
+			if p:IsA("BasePart") and p ~= shot.main and p:GetAttribute("Follow") then
+				-- Core and halo ride on the main part; the halo breathes.
+				p.CFrame = cf
+				local base = p:GetAttribute("Pulse") :: Vector3?
+				if base then
+					p.Size = base * (1 + 0.14 * math.sin(shot.age * 22))
+				end
+			elseif p:IsA("BasePart") and p ~= shot.main then
 				local offset = p:GetAttribute("Offset") :: Vector3?
 				local facing = if shot.velocity.X < 0 then -1 else 1
 				local o = offset or Vector3.zero
@@ -306,6 +366,12 @@ function ProjectileView.start()
 			local shape = event.shape or ""
 			local model, main = build(style, shape, color, event.size or 0.5)
 			local data = MatchState.shots[event.id]
+			if data then
+				-- Muzzle flash where the shot appears.
+				local at = toWorld(data.x, data.y)
+				Effects.flashBall(at, color, 4, 0.18)
+				Effects.ring(at, color, 6, 0.2, 0.15)
+			end
 			shots[event.id] = {
 				model = model,
 				main = main,
