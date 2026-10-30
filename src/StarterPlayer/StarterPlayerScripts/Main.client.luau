@@ -2,17 +2,21 @@
 -- Client entry point: match state from the server, then input, rendering, camera and HUD.
 
 local MatchState = require(script.Parent.State.MatchState)
+local ProfileState = require(script.Parent.State.ProfileState)
 local InputController = require(script.Parent.Controllers.InputController)
 local FighterView = require(script.Parent.Controllers.FighterView)
 local ProjectileView = require(script.Parent.Controllers.ProjectileView)
 local ItemView = require(script.Parent.Controllers.ItemView)
 local CameraController = require(script.Parent.Controllers.CameraController)
 local Hud = require(script.Parent.UI.Hud)
+local MetaHud = require(script.Parent.UI.MetaHud)
 
 MatchState.start()
+ProfileState.start()
 InputController.start()
 FighterView.start()
 ProjectileView.start()
 ItemView.start()
 CameraController.start()
 Hud.start()
+MetaHud.start()

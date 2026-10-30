@@ -23,6 +23,9 @@ local Remotes: { [string]: RemoteDef } = {
 	Shots = { kind = "event", direction = "toClient" },
 	-- Arena items at 10 Hz (unreliable): id, kind, position, holder.
 	Items = { kind = "event", direction = "toClient" },
+	-- Saved progress for the local player (coins, level, owned fighters) plus one-off news (reward, login bonus).
+	Profile = { kind = "event", direction = "toClient" },
+	BuyFighter = { kind = "event", direction = "toServer", perSecond = 2, args = { "string" } },
 	FinisherCode = { kind = "event", direction = "toServer", perSecond = 10, args = { "string" } },
 	SelectFighter = { kind = "event", direction = "toServer", perSecond = 4, args = { "string" } },
 	VoteArena = { kind = "event", direction = "toServer", perSecond = 2, args = { "string" } },

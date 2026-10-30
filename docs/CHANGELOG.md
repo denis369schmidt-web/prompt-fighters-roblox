@@ -1,5 +1,20 @@
 # Changelog
 
+## Fortschritt, Kämpfer-Shop und Vorschau-Bilder (2026-10-30)
+
+- Fortschritt wird gespeichert (DataStore): Münzen, Level mit Titel, Siege, Kämpfer-XP, freigeschaltete Kämpfer.
+  Ohne DataStore-Zugang (Studio) läuft ein vorläufiges Profil, das nie etwas überschreibt.
+- Belohnung nach jedem Kampf: Note S bis D, XP, Münzen, Level-Aufstieg; jeder 3. Sieg schaltet den günstigsten
+  gesperrten Kämpfer gratis frei. Ergebnis-Karte zeigt alles nach dem Kampf.
+- Täglicher Login-Bonus (7-Tage-Kalender, 50 bis 300 Münzen).
+- Kämpferwahl mit 3D-Porträts; 6 der 16 Kämpfer sind mit Münzen freizuschalten (Tippen zeigt den Preis, zweites Tippen kauft).
+- Profil-Leiste oben links: Level, Titel, XP-Balken, Münzen.
+- Gesichter: Augen mit Pupillen, Augenbrauen, Mund (passt sich Helmen und Masken an).
+- Arenen: schlanke schwebende Bühne statt großem Block, Kolosseum mit drei Bogenreihen weiter hinten,
+  dezentere Plattform-Leuchten, Schilder und Stadion-Bildschirm wieder im Bild.
+- Werkzeug: `scripts/export-scene.luau` + `scripts/preview/render.mjs` rendern Arenen, Lobby und Kämpfer als PNG
+  (`scripts/preview/shots.sh <ordner>`).
+
 ## Aufgeräumte Oberfläche (2026-10-21)
 
 - Schadens-Karten schmal am unteren Rand; die eigene Karte ist hervorgehoben („DU · Name“), Bots tragen „CPU“.

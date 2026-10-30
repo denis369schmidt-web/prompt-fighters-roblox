@@ -355,7 +355,8 @@ local STYLES: { [string]: StageStyle } = {
 local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 	local model = ctx.model
 	local stageWidth = (Arena.STAGE_RIGHT - Arena.STAGE_LEFT) * M
-	part(model, "Stage", Vector3.new(stageWidth, 4 * M, DEPTH), world(0, -2), s.side, s.sideMaterial)
+	-- A slim floating stage (1.6 m) on a stepped pedestal, so the front reads light instead of as one big wall.
+	part(model, "Stage", Vector3.new(stageWidth, 1.6 * M, DEPTH), world(0, -0.8), s.side, s.sideMaterial)
 	local top = part(
 		model,
 		"StageTop",
@@ -373,8 +374,8 @@ local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 		part(
 			model,
 			"Panel",
-			Vector3.new(stageWidth / panels - 0.5, 4 * M - 2.2, 0.3),
-			world(x, -2.1) + Vector3.new(0, 0, DEPTH / 2 + 0.1),
+			Vector3.new(stageWidth / panels - 0.5, 1.6 * M - 1.4, 0.3),
+			world(x, -0.85) + Vector3.new(0, 0, DEPTH / 2 + 0.1),
 			Color3.fromHSV(h, sat, math.clamp(v * (if k % 2 == 0 then 1.2 else 1.05), 0, 1)),
 			s.sideMaterial
 		)
@@ -382,9 +383,17 @@ local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 	part(
 		model,
 		"Underside",
-		Vector3.new(stageWidth * 0.7, 6 * M, DEPTH * 0.6),
-		world(0, -6.5),
-		s.side:Lerp(Color3.new(0, 0, 0), 0.4),
+		Vector3.new(stageWidth * 0.62, 2.4 * M, DEPTH * 0.7),
+		world(0, -2.8),
+		s.side:Lerp(Color3.new(0, 0, 0), 0.45),
+		s.sideMaterial
+	)
+	part(
+		model,
+		"Pedestal",
+		Vector3.new(stageWidth * 0.3, 4 * M, DEPTH * 0.45),
+		world(0, -6),
+		s.side:Lerp(Color3.new(0, 0, 0), 0.6),
 		s.sideMaterial
 	)
 	part(
@@ -428,6 +437,7 @@ local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 			ctx.accent,
 			Enum.Material.Neon
 		)
+		glow.Transparency = 0.45
 		local under = part(
 			model,
 			platform.name .. "Under",
@@ -436,7 +446,7 @@ local function buildStage(ctx: Ctx, arenaId: string, s: StageStyle)
 			ctx.accent,
 			Enum.Material.Neon
 		)
-		under.Transparency = 0.82
+		under.Transparency = 1 -- only its light shows
 		local surface = Instance.new("SurfaceLight")
 		surface.Face = Enum.NormalId.Bottom
 		surface.Color = ctx.accent
@@ -873,18 +883,27 @@ MOTIFS.colosseum = function(ctx)
 	ground(ctx, rgb(214, 186, 132), Enum.Material.Sand, -30)
 	local stone = rgb(196, 170, 128)
 	-- A half ring of arched walls in two tiers.
-	local radius = 120
+	local radius = 170
 	for k = -9, 9 do
 		local angle = k * 0.1 -- +-0.9 rad: the whole arc stays well behind the fight
 		local x, z = math.sin(angle) * radius, -math.cos(angle) * radius + 20
 		local facing = CFrame.new(at(x, 0, z)) * CFrame.Angles(0, -angle, 0)
-		for tier = 0, 1 do
-			local y = -30 + tier * 24
+		-- Three tiers of arches; a shaded wall behind them makes the openings read as depth.
+		part(
+			ctx.model,
+			"ArchShadow",
+			Vector3.new(18, 78, 1),
+			facing * CFrame.new(0, 5, -3.5),
+			stone:Lerp(rgb(40, 28, 20), 0.55),
+			Enum.Material.Sandstone
+		)
+		for tier = 0, 2 do
+			local y = -34 + tier * 26
 			part(
 				ctx.model,
 				"Pier",
-				Vector3.new(4, 22, 6),
-				facing * CFrame.new(-7, y + 11, 0),
+				Vector3.new(4, 23, 6),
+				facing * CFrame.new(-7, y + 11.5, 0),
 				stone,
 				Enum.Material.Sandstone
 			)
@@ -892,7 +911,7 @@ MOTIFS.colosseum = function(ctx)
 				ctx.model,
 				"Lintel",
 				Vector3.new(18, 3, 6),
-				facing * CFrame.new(0, y + 23.5, 0),
+				facing * CFrame.new(0, y + 24.5, 0),
 				stone,
 				Enum.Material.Sandstone
 			)
@@ -902,7 +921,7 @@ MOTIFS.colosseum = function(ctx)
 				ctx.model,
 				"Banner",
 				Vector3.new(6, 14, 0.3),
-				facing * CFrame.new(0, 26, 3.4),
+				facing * CFrame.new(0, 34, 3.4),
 				if k % 2 == 0 then ctx.trim else ctx.accent,
 				Enum.Material.Fabric
 			)
@@ -982,8 +1001,8 @@ MOTIFS.stadium = function(ctx)
 		spot.Brightness = 2
 		spot.Parent = head
 	end
-	local screen = part(ctx.model, "Jumbotron", Vector3.new(44, 20, 1), at(0, 48, WALL_Z - 66), rgb(10, 10, 16))
-	part(ctx.model, "ScreenFrame", Vector3.new(46, 22, 0.6), at(0, 48, WALL_Z - 66.6), ctx.trim, Enum.Material.Neon)
+	local screen = part(ctx.model, "Jumbotron", Vector3.new(44, 20, 1), at(0, 30, WALL_Z - 66), rgb(10, 10, 16))
+	part(ctx.model, "ScreenFrame", Vector3.new(46, 22, 0.6), at(0, 30, WALL_Z - 66.6), ctx.trim, Enum.Material.Neon)
 	sign(ctx, ctx.name, screen.Position + Vector3.new(0, 0, 0.8), if future then ctx.trim else ctx.accent, 40)
 end
 
@@ -1168,7 +1187,7 @@ MOTIFS.foundry = function(ctx)
 			Enum.Material.Metal
 		)
 	end
-	sign(ctx, ctx.name, at(-30, 26, WALL_Z - 38.5), ctx.trim, math.max(22, #ctx.name * 2))
+	sign(ctx, ctx.name, at(-30, 48, WALL_Z - 38.5), ctx.trim, math.max(22, #ctx.name * 2))
 end
 
 local function stars(ctx: Ctx, z: number, count: number)
@@ -1475,7 +1494,7 @@ local SKIES: { [string]: Sky } = {
 	stadium = { clock = 17.8, exposure = 0, haze = 0.6, density = 0.1 },
 	mountains = { clock = 0, exposure = 0.6, haze = 0.4, density = 0.1 },
 	industrial = { clock = 0, exposure = 0.5, haze = 0.8, density = 0.2 },
-	foundry = { clock = 0, exposure = 0.3, haze = 1.5, density = 0.25 },
+	foundry = { clock = 0, exposure = 0.3, haze = 1, density = 0.15 },
 	space = { clock = 0, exposure = 0.5, haze = 0, density = 0 },
 	space_interior = { clock = 0, exposure = 0.5, haze = 0.2, density = 0.05 },
 	war = { clock = 15, exposure = 0, haze = 2, density = 0.3 },

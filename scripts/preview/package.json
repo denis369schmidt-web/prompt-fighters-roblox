@@ -1,0 +1,10 @@
+{
+  "name": "prompt-fighters-preview",
+  "private": true,
+  "type": "module",
+  "description": "Renders scenes exported by scripts/export-scene.luau to PNG previews (three.js in headless Chromium).",
+  "devDependencies": {
+    "playwright": "1.48.2",
+    "three": "0.169.0"
+  }
+}

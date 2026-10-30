@@ -16,6 +16,8 @@ local Arenas = require(ReplicatedStorage.Shared.Data.Arenas)
 local MatchRunner = require(ReplicatedStorage.Shared.Combat.MatchRunner)
 local Fighters = require(ReplicatedStorage.Shared.Data.Fighters)
 local Visuals = require(ReplicatedStorage.Shared.Data.Visuals)
+local Profile = require(ReplicatedStorage.Shared.Meta.Profile)
+local PlayerData = require(script.Parent.Parent.Data.PlayerData)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
@@ -263,7 +265,56 @@ local function startMatch()
 	broadcastState()
 end
 
+-- Places 1..n: the winner first, then by stocks left and damage dealt.
+local function places(current: MatchRunner.Runner): { [number]: number }
+	local order = {}
+	for i in current.sim.fighters do
+		table.insert(order, i)
+	end
+	local winner = current.sim.result
+	table.sort(order, function(a, b)
+		if a == winner or b == winner then
+			return a == winner
+		end
+		local fa, fb = current.sim.fighters[a], current.sim.fighters[b]
+		if fa.lives ~= fb.lives then
+			return fa.lives > fb.lives
+		end
+		return fa.damageDealt > fb.damageDealt
+	end)
+	local place = {}
+	for rank, i in order do
+		place[i] = rank
+	end
+	return place
+end
+
+-- Saves XP, coins and unlocks for every player in the match and tells each one what they got.
+local function rewardPlayers(current: MatchRunner.Runner)
+	local place = places(current)
+	for i, slot in current.slots do
+		local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
+		if player then
+			local f = current.sim.fighters[i]
+			local stats: Profile.MatchStats = {
+				won = current.sim.result == i,
+				place = place[i],
+				kos = f.kos,
+				damage = f.damageDealt,
+				finishers = f.finishers,
+				stocksLost = f.stocksLost,
+				bestCombo = f.bestCombo,
+			}
+			local extra: { [string]: any } = {}
+			PlayerData.update(player, function(profile)
+				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats)
+			end, extra)
+		end
+	end
+end
+
 local function finishMatch(current: MatchRunner.Runner)
+	rewardPlayers(current)
 	local stats = {}
 	for i, f in current.sim.fighters do
 		stats[i] = {
@@ -351,7 +402,9 @@ end
 
 function MatchService.start()
 	RemoteHub.on("SelectFighter", function(player, fighterId: string)
-		if sliceAllowed(fighterId) then
+		local profile = PlayerData.get(player)
+		local owned = if profile then Profile.owns(profile, fighterId) else Profile.owns(Profile.new(), fighterId)
+		if sliceAllowed(fighterId) and owned then
 			selections[player.UserId] = fighterId
 			if phase == "lobby" then
 				showLobbyStatus()
@@ -368,6 +421,14 @@ function MatchService.start()
 		if slot then
 			current:setInput(slot, mask, axis)
 		end
+	end)
+	RemoteHub.on("BuyFighter", function(player, fighterId: string)
+		local extra: { [string]: any } = {}
+		PlayerData.update(player, function(profile)
+			local ok, reason = Profile.buyFighter(profile, fighterId)
+			extra.message = if ok then `{Fighters.get(fighterId).name} freigeschaltet!` else reason
+			extra.bought = if ok then fighterId else nil
+		end, extra)
 	end)
 	RemoteHub.on("VoteArena", function(player, id: string)
 		local index = table.find(options, id)

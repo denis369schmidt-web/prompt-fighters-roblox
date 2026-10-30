@@ -527,17 +527,77 @@ local JOINTS: { JointSpec } = {
 -- Height of the root part's center above the feet at scale 1.
 RigBuilder.STAND_HEIGHT = 3.1
 
-local function eyes(model: Model, look: Looks.Look)
+-- Gear that covers the lower face (no mouth) or the whole face (no brows either).
+local COVERS_MOUTH = { mask = true, bandana = true, helmet_visor = true, mech_visor = true }
+local COVERS_FACE = { knight_helm = true, great_helm = true, mech_visor = true }
+
+-- Face: eyes (white with a dark pupil, or glowing slits), brows with a determined tilt and a short mouth.
+local function face(model: Model, look: Looks.Look)
 	local glow = look.glowEyes == true
+	local h = look.scale.head
+	local front = -0.6 * h - 0.01
+	local mouth, brows = true, true
+	for _, gear in look.gear do
+		if COVERS_MOUTH[gear] then
+			mouth = false
+		end
+		if COVERS_FACE[gear] then
+			mouth, brows = false, false
+		end
+	end
+	local dark = Color3.fromRGB(25, 22, 30)
 	for side = -1, 1, 2 do
+		if glow then
+			piece(
+				model,
+				"Head",
+				"Eye",
+				Vector3.new(0.28 * h, 0.12 * h, 0.05),
+				CFrame.new(0.24 * h * side, 0.08 * h, front),
+				color(look.glow),
+				Enum.Material.Neon
+			)
+		else
+			piece(
+				model,
+				"Head",
+				"EyeWhite",
+				Vector3.new(0.24 * h, 0.24 * h, 0.04),
+				CFrame.new(0.24 * h * side, 0.08 * h, front),
+				Color3.fromRGB(245, 245, 250),
+				Enum.Material.SmoothPlastic
+			)
+			piece(
+				model,
+				"Head",
+				"Eye",
+				Vector3.new(0.12 * h, 0.17 * h, 0.05),
+				CFrame.new(0.21 * h * side, 0.06 * h, front - 0.01),
+				dark,
+				Enum.Material.SmoothPlastic
+			)
+		end
+		if brows then
+			piece(
+				model,
+				"Head",
+				"Brow",
+				Vector3.new(0.3 * h, 0.07 * h, 0.05),
+				CFrame.new(0.24 * h * side, 0.29 * h, front - 0.005) * CFrame.Angles(0, 0, math.rad(14 * side)),
+				if look.hair then color(look.hair):Lerp(dark, 0.5) else dark,
+				Enum.Material.SmoothPlastic
+			)
+		end
+	end
+	if mouth and not glow then
 		piece(
 			model,
 			"Head",
-			"Eye",
-			if glow then Vector3.new(0.26, 0.12, 0.05) else Vector3.new(0.14, 0.22, 0.05),
-			CFrame.new(0.24 * side, 0.08, -0.61),
-			if glow then color(look.glow) else Color3.fromRGB(25, 22, 30),
-			if glow then Enum.Material.Neon else Enum.Material.SmoothPlastic
+			"Mouth",
+			Vector3.new(0.3 * h, 0.06 * h, 0.04),
+			CFrame.new(0.02 * h, -0.28 * h, front),
+			Color3.fromRGB(90, 40, 40),
+			Enum.Material.SmoothPlastic
 		)
 	end
 end
@@ -598,7 +658,7 @@ function RigBuilder.build(fighterId: string): Model
 		motor.Parent = part1
 	end
 
-	eyes(model, look)
+	face(model, look)
 	for _, gearName in look.gear do
 		local make = GEAR[gearName]
 		if make then

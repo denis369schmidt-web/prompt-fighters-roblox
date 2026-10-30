@@ -17,6 +17,8 @@ local Visuals = require(Shared:WaitForChild("Data"):WaitForChild("Visuals"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
 local InputController = require(script.Parent.Parent.Controllers.InputController)
 local MatchState = require(script.Parent.Parent.State.MatchState)
+local ProfileState = require(script.Parent.Parent.State.ProfileState)
+local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 
 local Hud = {}
 
@@ -145,9 +147,9 @@ function Hud.start()
 
 	-- Lobby: pick one of the launch fighters (8 x 2 grid that shrinks to the screen width).
 	local picker = Instance.new("Frame")
-	picker.Size = UDim2.new(0.96, 0, 0, 236)
+	picker.Size = UDim2.new(0.96, 0, 0, 300)
 	picker.AnchorPoint = Vector2.new(0.5, 0)
-	picker.Position = UDim2.new(0.5, 0, 1, -256)
+	picker.Position = UDim2.new(0.5, 0, 1, -316)
 	picker.BackgroundTransparency = 1
 	picker.Parent = gui
 	local pickerLayout = Instance.new("UIGridLayout")
@@ -156,37 +158,99 @@ function Hud.start()
 	pickerLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	pickerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	pickerLayout.Parent = picker
-	local pickerTitle = label(gui, "WÄHLE DEINEN KÄMPFER", UDim2.new(1, 0, 0, 44), UDim2.new(0, 0, 1, -306))
+	local pickerTitle = label(gui, "WÄHLE DEINEN KÄMPFER", UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 1, -360))
 	local selectRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("SelectFighter") :: RemoteEvent
 	local chosen: string? = nil
 	local pickButtons: { [string]: TextButton } = {}
+	local buyRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyFighter") :: RemoteEvent
+	local locks: { [string]: TextLabel } = {}
+	local confirmBuy: string? = nil
+
+	local function refreshLocks()
+		for id, lock in locks do
+			local owned = ProfileState.owns(id)
+			local price = Fighters.get(id).unlock
+			lock.Visible = not owned
+			if not owned then
+				local amount = if price.kind == "coins" then (price :: any).price else 0
+				lock.Text = if confirmBuy == id then `KAUFEN?\n{amount} 🪙` else `🔒 {amount}`
+			end
+		end
+	end
+
 	for _, fighterId in Visuals.SLICE_FIGHTERS do
 		local def = Fighters.get(fighterId)
+		local element = Color3.fromHex(Visuals.elementColor(def.element))
 		local button = Instance.new("TextButton")
 		button.LayoutOrder = #picker:GetChildren()
-		button.BackgroundColor3 = Color3.fromHex(Visuals.elementColor(def.element))
-		button.Font = FONT
-		button.TextScaled = true
-		button.Text = def.name
-		button.TextColor3 = Color3.fromRGB(16, 14, 30)
+		button.BackgroundColor3 = Color3.fromRGB(22, 18, 40)
+		button.AutoButtonColor = true
+		button.Text = ""
 		button.Parent = picker
-		corner(button, 14)
+		corner(button, 12)
 		local stroke = Instance.new("UIStroke")
 		stroke.Thickness = 0
 		stroke.Color = Color3.new(1, 1, 1)
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		stroke.Parent = button
+		-- Live 3D portrait of the fighter.
+		local viewport = Instance.new("ViewportFrame")
+		viewport.Size = UDim2.fromScale(1, 0.78)
+		viewport.BackgroundColor3 = element:Lerp(Color3.fromRGB(16, 14, 30), 0.65)
+		viewport.Ambient = Color3.fromRGB(170, 165, 190)
+		viewport.LightColor = Color3.new(1, 1, 1)
+		viewport.LightDirection = Vector3.new(-0.4, -1, -0.6)
+		viewport.Parent = button
+		corner(viewport, 12)
+		local rig = RigBuilder.build(fighterId)
+		rig.Parent = viewport
+		local height = (rig:GetAttribute("StandHeight") :: number?) or RigBuilder.STAND_HEIGHT
+		local cam = Instance.new("Camera")
+		cam.FieldOfView = 30
+		cam.CFrame = CFrame.lookAt(Vector3.new(-3.2, height * 1.55, -12.5), Vector3.new(0, height * 1.2, 0))
+		cam.Parent = viewport
+		viewport.CurrentCamera = cam
+		local nameLabel = label(button, def.name, UDim2.new(1, -8, 0.2, 0), UDim2.new(0, 4, 0.79, 0))
+		nameLabel.TextColor3 = element
+		local lock = label(button, "", UDim2.fromScale(1, 0.78), UDim2.new(), nil)
+		lock.BackgroundColor3 = Color3.fromRGB(8, 6, 16)
+		lock.BackgroundTransparency = 0.35
+		lock.TextColor3 = Color3.fromRGB(255, 215, 80)
+		lock.Visible = false
+		lock.ZIndex = 3
+		corner(lock, 12)
+		local lockPad = Instance.new("UIPadding")
+		lockPad.PaddingTop = UDim.new(0.3, 0)
+		lockPad.PaddingBottom = UDim.new(0.3, 0)
+		lockPad.Parent = lock
+		locks[fighterId] = lock
 		button.Activated:Connect(function()
+			if not ProfileState.owns(fighterId) then
+				-- First tap asks, second tap buys (the server checks the coins).
+				if confirmBuy == fighterId then
+					buyRemote:FireServer(fighterId)
+					confirmBuy = nil
+				else
+					confirmBuy = fighterId
+				end
+				refreshLocks()
+				return
+			end
+			confirmBuy = nil
+			refreshLocks()
 			chosen = fighterId
 			selectRemote:FireServer(fighterId)
 			for id, b in pickButtons do
-				(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Thickness = if id == fighterId then 5 else 0
+				(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Thickness = if id == fighterId then 4 else 0
 			end
 			-- Close the picker so the lobby is free to walk around in.
 			setPickerOpen(false)
 		end)
 		pickButtons[fighterId] = button
 	end
+	ProfileState.onChange(function()
+		refreshLocks()
+	end)
 
 	-- Lobby: arena vote buttons (same as standing on a pad) and the button that reopens the picker.
 	local votedByButton = false
