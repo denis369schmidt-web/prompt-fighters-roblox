@@ -1,5 +1,24 @@
 # Changelog
 
+## Animationen mit Gewicht (2026-10-30)
+
+- Angriffe als Keyframes mit Zeit in der Phase (`Visual/Pose`): Ausholen, schneller Schlag mit Überschwinger,
+  Halten, Nachschwung, Zurückfedern. 30 eigene Bewegungen: Jab-1-2 (Hände wechseln), Gerade, Smash mit großem
+  Ausholen und Zittern, Uppercut mit Absprung, Feger, Breakdance-Drehung, fliegendes Knie, Salto-Axtkick (fair),
+  Rückwärtssalto (bair), Scherenkick, Stampfer, Zauber-Stoß, Strahl, Beschwörung, Korkenzieher-Uppercut,
+  Bodenschlag, Wurf, Konter, Iai-Schnitt, Trommelfeuer, Wirbel.
+- Waffen in der Hand: diagonaler Überkopfhieb, Vor-/Rückhand-Querhieb, Stich, beidhändiger Hieb, Aufwärts- und
+  Tiefschnitt, Drehhieb, Zielen mit Rückstoß (Ausrüstung des Kämpfers oder aufgehobene Waffe).
+- Bewegung: Gehen/Sprinten mit Schrittphasen, Armen gegen die Beine, Hüft-/Schulterdrehung, ruhigem Kopf und
+  Vorlage; Wenden mit Rutschen und Drehung zur Kamera; Absprung-Streckung, Hocke im Steigen, Schweben am
+  Scheitel, Fallhaltung; Salto beim Doppelsprung; Landungs-Stauchung je nach Fallhöhe; Füße stehen flach.
+- Stand mit Atmung, Gewichtsverlagerung und Eigenart: schwere Kämpfer (Golem, Grimbolt, Mech, Drache …) tiefer,
+  breiter, langsamer; leichte (Ninja, Zip, Lepora …) federn auf den Fußballen.
+- Treffer: Zucken weg vom Schlag, Salto-Taumeln bei starkem Wegschleudern; Rolle als ganze Drehung, Ausweichen
+  auf der Stelle, Luft-Ausweichen mit Schraube; Benommen-Taumeln, Kanten-Hängen, Greifen, Wurf, Smash-Laden.
+- `FighterView`: Federn pro Gelenk statt Lerp (Schläge schnappen mit leichtem Überschwingen), Vorlage beim
+  Beschleunigen, Zeitlupe bremst auch die Animation. Vorschau: `export-scene.luau poses` rendert Posen-Bögen.
+
 ## Treffer-Gefühl („Juice“) (2026-10-30)
 
 - Treffer nach Stärke (`Visual/GameFeel`): leicht = Funken in Schlagrichtung + weißer Einschlag-Stern;
