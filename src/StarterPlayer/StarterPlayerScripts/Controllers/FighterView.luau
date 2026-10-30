@@ -14,6 +14,9 @@ local Pose = require(Shared:WaitForChild("Visual"):WaitForChild("Pose"))
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
 local Simulation = require(Shared:WaitForChild("Combat"):WaitForChild("Simulation"))
+local Moveset = require(Shared:WaitForChild("Combat"):WaitForChild("Moveset"))
+local Items = require(Shared:WaitForChild("Combat"):WaitForChild("Items"))
+local Fighters = require(Shared:WaitForChild("Data"):WaitForChild("Fighters"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local Effects = require(script.Parent.Effects)
 local Juice = require(script.Parent.Juice)
@@ -23,11 +26,16 @@ local GameFeel = require(Shared:WaitForChild("Visual"):WaitForChild("GameFeel"))
 local M = Visuals.STUDS_PER_METER
 local BASE_Y = Visuals.STAGE_Y
 local FOLLOW = 22
-local EASE = 14
-local EASE_SNAPPY = 32
 local SNAP_DISTANCE = 6 * M
 -- Fighters turn a little toward the camera so faces and gear read in a side view.
 local CAMERA_TURN = 0.35
+-- Yaw for facing right / left; a turn-around runs through the camera side (yaw -pi faces the camera).
+local YAW_RIGHT = math.atan2(-1, -CAMERA_TURN)
+local YAW_LEFT = -2 * math.pi - YAW_RIGHT
+-- Joint springs: substep so stiff springs stay stable at low frame rates.
+local SPRING_STEP = 1 / 120
+-- Per move name: stage lengths in seconds, for the keyframe timeline.
+type Lengths = { [string]: { windup: number, active: number, recovery: number } }
 
 type View = {
 	model: Model,
@@ -35,9 +43,42 @@ type View = {
 	standHeight: number,
 	motors: { [string]: Motor6D },
 	angles: { [string]: Vector3 },
+	angleVel: { [string]: Vector3 },
+	-- Root channels as springs: value + velocity (rootY, pitch, roll, spin, lunge, yaw).
 	rootY: number,
 	pitch: number,
 	roll: number,
+	spin: number,
+	lunge: number,
+	yaw: number,
+	rootVel: { [string]: number },
+	lean: number,
+	vxSmooth: number,
+	-- Animation context tracked from snapshots (see Pose.PoseInput).
+	style: Pose.Style,
+	gearWeapon: string,
+	lengths: Lengths,
+	moveKey: string,
+	stageStart: number,
+	lastMove: string,
+	lastStage: string,
+	lastMoveAt: number,
+	variant: number,
+	stateName: string,
+	stateStart: number,
+	wasGrounded: boolean,
+	airStart: number,
+	landStart: number,
+	landImpact: number,
+	flipStart: number,
+	turnStart: number,
+	lastFacing: number,
+	snapFrame: number,
+	snapX: number,
+	snapY: number,
+	snapVx: number,
+	snapVy: number,
+	airVy: number,
 	position: Vector3,
 	lastX: number,
 	phase: number,
@@ -221,15 +262,64 @@ local function build()
 		for _, name in Pose.JOINTS do
 			angles[name] = Vector3.zero
 		end
+		local angleVel = {}
+		for _, name in Pose.JOINTS do
+			angleVel[name] = Vector3.zero
+		end
+		-- Stage lengths per move name; signature specials go by their mechanic (see Simulation.snapshot).
+		local lengths: Lengths = {}
+		local okMoves, moves = pcall(Moveset.build, slot.fighterId)
+		if okMoves then
+			for key, ability in moves do
+				local entry = { windup = ability.windup, active = ability.active, recovery = ability.recovery }
+				lengths[key] = entry
+				local sig = ability.sig
+				if sig and type(sig.mech) == "string" then
+					lengths[sig.mech] = entry
+				end
+			end
+		end
+		local okDef, def = pcall(Fighters.get, slot.fighterId)
 		views[i] = {
 			model = model,
 			root = root,
 			standHeight = standHeight,
 			motors = motors,
 			angles = angles,
+			angleVel = angleVel,
 			rootY = 0,
 			pitch = 0,
 			roll = 0,
+			spin = 0,
+			lunge = 0,
+			yaw = YAW_RIGHT,
+			rootVel = { rootY = 0, pitch = 0, roll = 0, spin = 0, lunge = 0, yaw = 0 },
+			lean = 0,
+			vxSmooth = 0,
+			style = Pose.style(slot.fighterId, if okDef then def.weight else nil, i),
+			gearWeapon = Pose.weaponStyle(look.gear),
+			lengths = lengths,
+			moveKey = "",
+			stageStart = 0,
+			lastMove = "",
+			lastStage = "",
+			lastMoveAt = -10,
+			variant = 0,
+			stateName = "",
+			stateStart = 0,
+			wasGrounded = true,
+			airStart = 0,
+			landStart = -10,
+			landImpact = 0,
+			flipStart = -10,
+			turnStart = -10,
+			lastFacing = 0,
+			snapFrame = -1,
+			snapX = 0,
+			snapY = 0,
+			snapVx = 0,
+			snapVy = 0,
+			airVy = 0,
 			position = Vector3.zero,
 			lastX = 0,
 			phase = 0,
@@ -261,6 +351,114 @@ local function setVisible(view: View, visible: boolean)
 	view.highlight.Enabled = visible
 end
 
+-- Damped spring toward a goal (zeta < 1 overshoots a little). Returns the new value and velocity.
+local function spring(x: number, v: number, goal: number, omega: number, zeta: number, dt: number): (number, number)
+	local steps = math.max(1, math.ceil(dt / SPRING_STEP))
+	local h = dt / steps
+	for _ = 1, steps do
+		v += (-2 * zeta * omega * v - omega * omega * (x - goal)) * h
+		x += v * h
+	end
+	return x, v
+end
+
+local function springVec(
+	x: Vector3,
+	v: Vector3,
+	goal: Vector3,
+	omega: number,
+	zeta: number,
+	dt: number
+): (Vector3, Vector3)
+	local steps = math.max(1, math.ceil(dt / SPRING_STEP))
+	local h = dt / steps
+	for _ = 1, steps do
+		v += (-2 * zeta * omega * v - omega * omega * (x - goal)) * h
+		x += v * h
+	end
+	return x, v
+end
+
+-- Brings an angle (degrees) within half a turn of its goal, so finished flips and spins don't unwind.
+local function unwind(x: number, goal: number): number
+	while x - goal > 180 do
+		x -= 360
+	end
+	while goal - x > 180 do
+		x += 360
+	end
+	return x
+end
+
+-- Animation clock: runs slower during Juice slow motion, so strikes and springs slow down with it.
+local animClock = 0
+
+-- Updates the per-fighter timing the keyframes need (stage/state clocks, jumps, landings, turns).
+local function trackTiming(view: View, f: MatchRunner.NetFighter, frame: number, now: number)
+	-- Velocities from the snapshot stream (sim frames at 60 Hz), sharper than the smoothed drawing.
+	if frame ~= view.snapFrame then
+		local gap = (frame - view.snapFrame) / 60
+		if view.snapFrame >= 0 and gap > 0 and gap < 0.5 then
+			local vx, vy = (f.x - view.snapX) / gap, (f.y - view.snapY) / gap
+			-- A sudden upward kick while airborne is an air jump: front flip.
+			if not f.grounded and vy - view.snapVy > 4 and vy > 2 and now - view.airStart > 0.12 then
+				view.flipStart = now
+			end
+			view.snapVx, view.snapVy = vx, vy
+		end
+		view.snapFrame, view.snapX, view.snapY = frame, f.x, f.y
+	end
+	if f.state ~= view.stateName then
+		view.stateName, view.stateStart = f.state, now
+	end
+	local key = f.move .. "|" .. f.moveStage
+	if key ~= view.moveKey then
+		local fresh = f.move ~= ""
+			and (f.move ~= view.lastMove or view.lastStage == "recovery" or view.lastStage == "")
+			and f.moveStage ~= "recovery"
+		if fresh then
+			-- Moves in quick succession alternate (1-2 jabs, forehand/backhand slashes).
+			view.variant = if now - view.lastMoveAt < 0.7 then view.variant + 1 else 0
+			view.lastMoveAt = now
+		end
+		view.moveKey, view.stageStart = key, now
+		view.lastMove, view.lastStage = f.move, f.moveStage
+	end
+	if f.move ~= "" then
+		view.lastMoveAt = now
+	end
+	if f.grounded and not view.wasGrounded then
+		view.landStart = now
+		view.landImpact = math.clamp(-view.airVy / 14, 0.2, 1)
+	elseif not f.grounded and view.wasGrounded then
+		view.airStart = now
+	end
+	if not f.grounded then
+		view.airVy = view.snapVy
+	end
+	view.wasGrounded = f.grounded
+	local facing = if f.facing < 0 then -1 else 1
+	if view.lastFacing ~= 0 and facing ~= view.lastFacing then
+		view.turnStart = now
+	end
+	view.lastFacing = facing
+end
+
+-- Weapon style per slot this frame: an arena weapon in hand, else the power hammer, else the rig's own gear.
+local function wielded(): { [number]: string }
+	local out = {}
+	for _, item in MatchState.items do
+		if item.state >= 20 then
+			local id = Items.KINDS[item.kind]
+			local style = if id then Pose.WEAPON_STYLE[id] else nil
+			if style then
+				out[item.state - 20] = style
+			end
+		end
+	end
+	return out
+end
+
 local function render(dt: number)
 	if MatchState.snapshot == nil then
 		return
@@ -269,6 +467,10 @@ local function render(dt: number)
 	local follow = 1 - math.exp(-FOLLOW * dt)
 	local t = os.clock()
 	local blink = (t * 12) % 2 < 1
+	local adt = dt * Juice.timeScale()
+	animClock += adt
+	local now = animClock
+	local weapons = wielded()
 	for i, f in snap.fighters do
 		local view = views[i]
 		if not view or Juice.frozen(i) then -- Juice.frozen: hitstop hold (Controllers/Juice)
@@ -285,7 +487,23 @@ local function render(dt: number)
 		local speed = if dt > 0 and not snapped then math.abs(dx) / dt else 0
 		view.vy = if dt > 0 and not snapped then view.vy + (dy / dt - view.vy) * 0.3 else 0
 		view.phase += math.abs(dx) * 3.2
+		trackTiming(view, f, snap.frame, now)
 
+		-- Lean into acceleration (and back when braking) while on the ground.
+		local vx = if dt > 0 and not snapped then dx / dt else 0
+		local accel = if dt > 0 then (vx - view.vxSmooth) / dt else 0
+		view.vxSmooth += (vx - view.vxSmooth) * math.min(1, dt * 10)
+		local facing = if f.facing < 0 then -1 else 1
+		local leanGoal = if f.grounded
+				and f.state == "Ready"
+				and f.move == ""
+			then math.clamp(accel * facing * 0.6, -9, 9)
+			else 0
+		view.lean += (leanGoal - view.lean) * math.min(1, dt * 6)
+
+		local status = f.status or 0
+		local weapon = weapons[i] or (if bit32.btest(status, STATUS.hammer) then "heavy" else nil) or view.gearWeapon
+		local stageLengths = view.lengths[f.move]
 		local pose = Pose.compute({
 			state = f.state,
 			move = f.move,
@@ -295,25 +513,57 @@ local function render(dt: number)
 			speed = speed,
 			vy = view.vy,
 			phase = view.phase,
-			t = t,
+			t = now,
+			stageTime = now - view.stageStart,
+			stageLength = if stageLengths then (stageLengths :: any)[f.moveStage] else nil,
+			stateTime = now - view.stateStart,
+			vx = view.snapVx,
+			facing = facing,
+			airTime = if f.grounded then 0 else now - view.airStart,
+			landTime = now - view.landStart,
+			landImpact = view.landImpact,
+			flipTime = now - view.flipStart,
+			turnTime = now - view.turnStart,
+			variant = view.variant,
+			weapon = weapon,
+			style = view.style,
 		})
-		local ease = 1 - math.exp(-(if pose.snappy then EASE_SNAPPY else EASE) * dt)
+		-- Every joint and root channel follows its target on a spring: strikes snap in and overshoot a touch,
+		-- locomotion stays smooth.
+		local omega, zeta = pose.stiffness, pose.damping
+		if snapped then
+			omega, zeta = 60, 1
+		end
 		for name, motor in view.motors do
 			local goal = pose.joints[name]
-			if goal then
-				local current = view.angles[name]:Lerp(Vector3.new(goal.x, goal.y, goal.z), ease)
-				view.angles[name] = current
-				motor.Transform = CFrame.Angles(math.rad(current.X), math.rad(current.Y), math.rad(current.Z))
+			local current = view.angles[name]
+			if goal and current then
+				local x, v =
+					springVec(current, view.angleVel[name], Vector3.new(goal.x, goal.y, goal.z), omega, zeta, adt)
+				view.angles[name], view.angleVel[name] = x, v
+				motor.Transform = CFrame.Angles(math.rad(x.X), math.rad(x.Y), math.rad(x.Z))
 			end
 		end
-		view.rootY += (pose.rootY - view.rootY) * ease
-		view.pitch += (pose.pitch - view.pitch) * ease
-		view.roll += (pose.roll - view.roll) * ease
+		local vel = view.rootVel
+		view.rootY, vel.rootY = spring(view.rootY, vel.rootY, pose.rootY, omega, zeta, adt)
+		view.pitch = unwind(view.pitch, pose.pitch + view.lean)
+		view.pitch, vel.pitch = spring(view.pitch, vel.pitch, pose.pitch + view.lean, omega, zeta, adt)
+		view.roll, vel.roll = spring(view.roll, vel.roll, pose.roll, omega, zeta, adt)
+		view.spin = unwind(view.spin, pose.spin)
+		view.spin, vel.spin = spring(view.spin, vel.spin, pose.spin, omega * 1.2, 0.9, adt)
+		view.lunge, vel.lunge = spring(view.lunge, vel.lunge, pose.lunge, omega, zeta, adt)
+		local yawGoal = if facing > 0 then YAW_RIGHT else YAW_LEFT
+		if snapped then
+			view.yaw, vel.yaw = yawGoal, 0
+		else
+			view.yaw, vel.yaw = spring(view.yaw, vel.yaw, yawGoal, 24, 0.85, adt)
+		end
 
-		local look = Vector3.new(f.facing, 0, CAMERA_TURN).Unit
-		local base = view.position + Vector3.new(0, view.standHeight + view.rootY, 0)
-		view.root.CFrame = CFrame.lookAt(base, base + look)
-			* CFrame.Angles(math.rad(-view.pitch), math.rad(pose.spin), math.rad(view.roll))
+		local base = view.position
+			+ Vector3.new(facing * view.lunge * view.scale, view.standHeight + view.rootY * view.scale, 0)
+		view.root.CFrame = CFrame.new(base)
+			* CFrame.Angles(0, view.yaw, 0)
+			* CFrame.Angles(math.rad(-view.pitch), math.rad(view.spin), math.rad(view.roll))
 
 		local alive = f.state ~= "Defeated"
 		setVisible(view, alive and not (f.invulnerable and blink))
@@ -326,7 +576,6 @@ local function render(dt: number)
 		view.tumble.Enabled = f.state == "HitStun" and speed > 8
 
 		-- Status: ice, wings, and a colored glow for rage, curse, armor, mark and a full heat gauge.
-		local status = f.status or 0
 		local function has(bit: number): boolean
 			return bit32.btest(status, bit)
 		end
