@@ -7,3 +7,6 @@ globals:
   it: {args: [{type: string}, {type: function}]}
   expect: {args: [{type: any}]}
   Shared: {any: true}
+  Server: {any: true}
+  workspace: {any: true}
+  Vector3: {any: true}
