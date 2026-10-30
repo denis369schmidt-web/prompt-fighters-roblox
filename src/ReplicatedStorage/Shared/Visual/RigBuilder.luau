@@ -1,402 +1,32 @@
 --!strict
--- Builds a fighter's display rig entirely from plain Parts: an R15-shaped body (same part and Motor6D names as
--- a Roblox R15 character, so Visual/Pose drives it) plus gear from Data/Looks. Nothing is fetched from the
--- asset service, so rigs render the same in an unpublished Studio place, a live server and on every device.
--- Runs on the client; each client builds its own copies.
+-- Builds a fighter's display rig entirely from plain Parts. The R15 body parts (same part and Motor6D names as a
+-- Roblox R15 character, so Visual/Pose drives it) are invisible bones; on each bone sits a sculpted body made of
+-- cylinders, balls, wedges and blocks (capsule limbs, tapered torso, fists, boots, a rounded head with a face) and
+-- the fighter's gear from Visual/GearData. Nothing is fetched from the asset service, so rigs render the same in an
+-- unpublished Studio place, a live server and on every device. Runs on the client; each client builds its own copies.
 
 local GearData = require(script.Parent.GearData)
 local Looks = require(script.Parent.Parent.Data.Looks)
 
 local RigBuilder = {}
 
+type Parts = { [string]: BasePart }
+
+-- Everything a builder needs: the bones, the look, and per-bone scale for data written at scale 1.
+type Ctx = {
+	look: Looks.Look,
+	build: Looks.Build,
+	parts: Parts,
+	scales: { [string]: Vector3 },
+	origins: { [string]: CFrame },
+	count: number,
+}
+
 local function color(hex: string): Color3
 	return Color3.fromHex(hex)
 end
 
-local function piece(
-	model: Model,
-	limbName: string,
-	name: string,
-	size: Vector3,
-	offset: CFrame,
-	c: Color3,
-	material: Enum.Material?,
-	shape: Enum.PartType?
-): BasePart?
-	local found = model:FindFirstChild(limbName, true)
-	if found == nil or not found:IsA("BasePart") then
-		return nil
-	end
-	local limb = found :: BasePart
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Color = c
-	p.Material = material or Enum.Material.SmoothPlastic
-	if shape then
-		p.Shape = shape
-	end
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.Massless = true
-	p.CastShadow = material ~= Enum.Material.Neon
-	p.CFrame = limb.CFrame * offset
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = limb
-	weld.Part1 = p
-	weld.Parent = p
-	p.Parent = limb
-	return p
-end
-
--- Gear pieces. Offsets are relative to the limb (rig faces -Z, up is +Y).
-local GEAR: { [string]: (model: Model, look: Looks.Look) -> () } = {
-	headband = function(model, look)
-		local glow = color(look.glow)
-		piece(
-			model,
-			"Head",
-			"Headband",
-			Vector3.new(1.25, 0.22, 1.25),
-			CFrame.new(0, 0.25, 0),
-			glow,
-			Enum.Material.Neon
-		)
-		piece(
-			model,
-			"Head",
-			"BandTailA",
-			Vector3.new(0.12, 0.12, 1.1),
-			CFrame.new(0.15, 0.2, 0.95) * CFrame.Angles(0.5, 0.2, 0),
-			glow,
-			Enum.Material.Neon
-		)
-		piece(
-			model,
-			"Head",
-			"BandTailB",
-			Vector3.new(0.12, 0.12, 0.9),
-			CFrame.new(-0.1, 0.1, 0.9) * CFrame.Angles(0.8, -0.2, 0),
-			glow,
-			Enum.Material.Neon
-		)
-	end,
-	mask = function(model, look)
-		piece(
-			model,
-			"Head",
-			"Mask",
-			Vector3.new(1.22, 0.55, 1.22),
-			CFrame.new(0, -0.3, 0),
-			color(look.primary),
-			Enum.Material.Fabric
-		)
-	end,
-	blades_back = function(model, look)
-		local steel = Color3.fromRGB(190, 200, 215)
-		piece(
-			model,
-			"UpperTorso",
-			"BladeA",
-			Vector3.new(0.15, 2.6, 0.08),
-			CFrame.new(0, 0.3, 0.6) * CFrame.Angles(0, 0, math.rad(35)),
-			steel,
-			Enum.Material.Metal
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"BladeB",
-			Vector3.new(0.15, 2.6, 0.08),
-			CFrame.new(0, 0.3, 0.62) * CFrame.Angles(0, 0, math.rad(-35)),
-			steel,
-			Enum.Material.Metal
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"BladeGlow",
-			Vector3.new(0.5, 0.5, 0.1),
-			CFrame.new(0, 0.3, 0.66),
-			color(look.glow),
-			Enum.Material.Neon,
-			Enum.PartType.Ball
-		)
-	end,
-	scarf = function(model, look)
-		piece(
-			model,
-			"UpperTorso",
-			"Scarf",
-			Vector3.new(1.5, 0.35, 1.25),
-			CFrame.new(0, 0.85, 0),
-			color(look.glow),
-			Enum.Material.Neon
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"ScarfTail",
-			Vector3.new(0.4, 1.2, 0.12),
-			CFrame.new(0.35, 0.3, 0.6) * CFrame.Angles(0.3, 0, 0.2),
-			color(look.glow),
-			Enum.Material.Neon
-		)
-	end,
-	rock_shoulders = function(model, look)
-		local rock = color(Looks.shade(look.primary, 0.8))
-		piece(
-			model,
-			"LeftUpperArm",
-			"RockL",
-			Vector3.new(1.5, 1.1, 1.5),
-			CFrame.new(-0.15, 0.45, 0) * CFrame.Angles(0.2, 0.4, -0.3),
-			rock,
-			Enum.Material.Slate
-		)
-		piece(
-			model,
-			"RightUpperArm",
-			"RockR",
-			Vector3.new(1.5, 1.1, 1.5),
-			CFrame.new(0.15, 0.45, 0) * CFrame.Angles(-0.2, -0.3, 0.3),
-			rock,
-			Enum.Material.Slate
-		)
-	end,
-	magma_cracks = function(model, look)
-		local glow = color(look.glow)
-		piece(
-			model,
-			"UpperTorso",
-			"CrackA",
-			Vector3.new(0.12, 1.3, 0.1),
-			CFrame.new(-0.3, 0, -0.52) * CFrame.Angles(0, 0, 0.4),
-			glow,
-			Enum.Material.Neon
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"CrackB",
-			Vector3.new(0.12, 0.9, 0.1),
-			CFrame.new(0.35, 0.2, -0.52) * CFrame.Angles(0, 0, -0.6),
-			glow,
-			Enum.Material.Neon
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"Core",
-			Vector3.new(0.45, 0.45, 0.2),
-			CFrame.new(0, 0.1, -0.5),
-			glow,
-			Enum.Material.Neon,
-			Enum.PartType.Ball
-		)
-		piece(
-			model,
-			"LowerTorso",
-			"CrackC",
-			Vector3.new(0.9, 0.1, 0.1),
-			CFrame.new(0, 0, -0.52),
-			glow,
-			Enum.Material.Neon
-		)
-	end,
-	magma_fists = function(model, look)
-		local glow = color(look.glow)
-		piece(
-			model,
-			"LeftHand",
-			"FistL",
-			Vector3.new(0.8, 0.8, 0.8),
-			CFrame.new(0, -0.1, 0),
-			glow,
-			Enum.Material.Neon,
-			Enum.PartType.Ball
-		)
-		piece(
-			model,
-			"RightHand",
-			"FistR",
-			Vector3.new(0.8, 0.8, 0.8),
-			CFrame.new(0, -0.1, 0),
-			glow,
-			Enum.Material.Neon,
-			Enum.PartType.Ball
-		)
-	end,
-	katana = function(model, look)
-		piece(
-			model,
-			"RightHand",
-			"Hilt",
-			Vector3.new(0.15, 0.15, 0.7),
-			CFrame.new(0, -0.2, -0.1),
-			Color3.fromRGB(30, 30, 35),
-			Enum.Material.Fabric
-		)
-		piece(
-			model,
-			"RightHand",
-			"Guard",
-			Vector3.new(0.45, 0.08, 0.45),
-			CFrame.new(0, -0.2, -0.5),
-			Color3.fromRGB(200, 170, 80),
-			Enum.Material.Metal
-		)
-		piece(
-			model,
-			"RightHand",
-			"Blade",
-			Vector3.new(0.08, 0.2, 3.2),
-			CFrame.new(0, -0.2, -2.1),
-			Color3.fromRGB(220, 230, 240),
-			Enum.Material.Metal
-		)
-		piece(
-			model,
-			"RightHand",
-			"Edge",
-			Vector3.new(0.04, 0.05, 3.1),
-			CFrame.new(0, -0.08, -2.1),
-			color(look.glow),
-			Enum.Material.Neon
-		)
-	end,
-	sheath = function(model, _look)
-		piece(
-			model,
-			"LowerTorso",
-			"Sheath",
-			Vector3.new(0.22, 0.22, 3),
-			CFrame.new(-0.8, 0, 0.2) * CFrame.Angles(0.35, 0.25, 0),
-			Color3.fromRGB(25, 25, 30),
-			Enum.Material.SmoothPlastic
-		)
-	end,
-	sash = function(model, look)
-		piece(
-			model,
-			"LowerTorso",
-			"Sash",
-			Vector3.new(2.1, 0.3, 1.15),
-			CFrame.new(0, 0.3, 0),
-			color(Looks.shade(look.glow, 0.7)),
-			Enum.Material.Fabric
-		)
-	end,
-	topknot = function(model, _look)
-		piece(
-			model,
-			"Head",
-			"Topknot",
-			Vector3.new(0.45, 0.45, 0.45),
-			CFrame.new(0, 0.75, 0.2),
-			Color3.fromRGB(25, 22, 22),
-			Enum.Material.Fabric,
-			Enum.PartType.Ball
-		)
-		piece(
-			model,
-			"Head",
-			"Hair",
-			Vector3.new(1.25, 0.4, 1.25),
-			CFrame.new(0, 0.48, 0.05),
-			Color3.fromRGB(25, 22, 22),
-			Enum.Material.Fabric
-		)
-	end,
-	ears = function(model, look)
-		local fur = color(look.primary)
-		local inner = color(Looks.shade(look.skin, 0.95))
-		for side = -1, 1, 2 do
-			local tilt = CFrame.Angles(0, 0, math.rad(-12 * side))
-			piece(
-				model,
-				"Head",
-				"Ear",
-				Vector3.new(0.35, 1.5, 0.22),
-				CFrame.new(0.3 * side, 1.2, 0.1) * tilt,
-				fur,
-				Enum.Material.Fabric
-			)
-			piece(
-				model,
-				"Head",
-				"EarInner",
-				Vector3.new(0.18, 1.1, 0.05),
-				CFrame.new(0.3 * side, 1.15, -0.02) * tilt,
-				inner,
-				Enum.Material.SmoothPlastic
-			)
-		end
-	end,
-	bow = function(model, look)
-		local wood = Color3.fromRGB(110, 80, 60)
-		piece(
-			model,
-			"LeftHand",
-			"BowGrip",
-			Vector3.new(0.18, 0.6, 0.18),
-			CFrame.new(0, -0.25, 0),
-			wood,
-			Enum.Material.Wood
-		)
-		piece(
-			model,
-			"LeftHand",
-			"BowUpper",
-			Vector3.new(0.12, 1.6, 0.12),
-			CFrame.new(0, 0.45, 0.35) * CFrame.Angles(math.rad(-25), 0, 0),
-			wood,
-			Enum.Material.Wood
-		)
-		piece(
-			model,
-			"LeftHand",
-			"BowLower",
-			Vector3.new(0.12, 1.6, 0.12),
-			CFrame.new(0, -0.95, 0.35) * CFrame.Angles(math.rad(25), 0, 0),
-			wood,
-			Enum.Material.Wood
-		)
-		piece(
-			model,
-			"LeftHand",
-			"String",
-			Vector3.new(0.03, 2.9, 0.03),
-			CFrame.new(0, -0.25, 0.75),
-			color(look.glow),
-			Enum.Material.Neon
-		)
-	end,
-	quiver = function(model, look)
-		piece(
-			model,
-			"UpperTorso",
-			"Quiver",
-			Vector3.new(0.5, 1.7, 0.5),
-			CFrame.new(0.4, 0.2, 0.65) * CFrame.Angles(0, 0, math.rad(-20)),
-			Color3.fromRGB(90, 65, 50),
-			Enum.Material.Leather,
-			Enum.PartType.Cylinder
-		)
-		piece(
-			model,
-			"UpperTorso",
-			"Fletching",
-			Vector3.new(0.45, 0.35, 0.45),
-			CFrame.new(0.7, 1.05, 0.65),
-			color(look.glow),
-			Enum.Material.Neon
-		)
-	end,
-}
-
--- Fixed tones for data-driven gear (GearData); look slots (primary, glow, hair, accent, ...) come from the look.
+-- Fixed tones for gear; look slots (primary, glow, hair, accent, ...) come from the look.
 local TONES: { [string]: string } = {
 	steel = "#A7B4C2",
 	gold = "#D4A93C",
@@ -407,54 +37,153 @@ local TONES: { [string]: string } = {
 	bone = "#E8E4D8",
 	rope = "#C8A46A",
 	red = "#B3202A",
+	black = "#16141C",
+	brass = "#C08A3E",
+	fur = "#F4EFE8",
+	pink = "#F2A0B0",
+	iron = "#4A4F58",
 }
 
-local function toneOf(look: Looks.Look, slot: string): Color3
-	local tone = TONES[slot]
-	if tone then
-		return color(tone)
+-- A color slot: a fixed tone, a look field, "#RRGGBB", or any of these with "*factor" to shade it
+-- (e.g. "primary*0.8" for a shadow trim, "accent*1.2" for a highlight).
+local function tone(look: Looks.Look, slot: string): Color3
+	local base, factor = string.match(slot, "^([^*]+)%*([%d%.]+)$")
+	if base and factor then
+		local c = tone(look, base)
+		local f = tonumber(factor) :: number
+		if f <= 1 then
+			return c:Lerp(Color3.new(0, 0, 0), 1 - f)
+		end
+		return c:Lerp(Color3.new(1, 1, 1), math.min(1, f - 1))
+	end
+	if string.sub(slot, 1, 1) == "#" then
+		return color(slot)
+	end
+	local fixed = TONES[slot]
+	if fixed then
+		return color(fixed)
 	end
 	if slot == "hair" then
 		return color(look.hair or "#2A2226")
 	elseif slot == "accent" then
 		return color(look.accent or look.glow)
+	elseif slot == "trim" then
+		return color(look.trim or look.accent or look.glow)
 	end
 	local value = (look :: any)[slot]
 	return color(if type(value) == "string" then value else look.glow)
 end
+RigBuilder.tone = tone
 
-local function dataGear(pieces: { GearData.Piece }): (model: Model, look: Looks.Look) -> ()
-	return function(model, look)
-		for _, d in pieces do
-			local offset = CFrame.new(d.offset[1], d.offset[2], d.offset[3])
-			local rotation = d.rotation
-			if rotation then
-				offset *= CFrame.Angles(math.rad(rotation[1]), math.rad(rotation[2]), math.rad(rotation[3]))
-			end
-			local shape = d.shape
-			piece(
-				model,
-				d.limb,
-				d.name,
-				Vector3.new(d.size[1], d.size[2], d.size[3]),
-				offset,
-				toneOf(look, d.color),
-				(Enum.Material :: any)[d.material],
-				if shape then (Enum.PartType :: any)[shape] else nil
-			)
+local function material(name: string?): Enum.Material
+	if name == nil then
+		return Enum.Material.SmoothPlastic
+	end
+	return (Enum.Material :: any)[name] or Enum.Material.SmoothPlastic
+end
+
+-- Welds one decoration part to a bone. `offset` is relative to the bone's visual origin.
+local function attach(
+	ctx: Ctx,
+	boneName: string,
+	name: string,
+	size: Vector3,
+	offset: CFrame,
+	c: Color3,
+	mat: Enum.Material,
+	shape: string?,
+	transparency: number?
+): BasePart?
+	local bone = ctx.parts[boneName]
+	if bone == nil then
+		return nil
+	end
+	local p: BasePart
+	if shape == "Wedge" then
+		p = Instance.new("WedgePart")
+	else
+		local part = Instance.new("Part")
+		if shape and shape ~= "Block" then
+			part.Shape = (Enum.PartType :: any)[shape]
+		end
+		p = part
+	end
+	p.Name = name
+	p.Size = size
+	p.Color = c
+	p.Material = mat
+	p.Transparency = transparency or 0
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = mat ~= Enum.Material.Neon and mat ~= Enum.Material.ForceField
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.CFrame = bone.CFrame * (ctx.origins[boneName] or CFrame.identity) * offset
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = bone
+	weld.Part1 = p
+	weld.Parent = p
+	p.Parent = bone
+	ctx.count += 1
+	return p
+end
+
+-- Scales a size given in the part's own axes by the bone scale, following the part's rotation.
+local function scaledSize(size: Vector3, rotation: CFrame, sc: Vector3): Vector3
+	local function along(axis: Vector3): number
+		return axis.X * axis.X * sc.X + axis.Y * axis.Y * sc.Y + axis.Z * axis.Z * sc.Z
+	end
+	return Vector3.new(
+		size.X * along(rotation.RightVector),
+		size.Y * along(rotation.UpVector),
+		size.Z * along(-rotation.LookVector)
+	)
+end
+
+-- Builds one GearData piece on its bone, scaled to the fighter's proportions.
+local function buildPiece(ctx: Ctx, d: GearData.Piece)
+	local sc = ctx.scales[d.limb] or Vector3.one
+	local rotation: CFrame = CFrame.identity
+	local position: Vector3
+	if d.cf then
+		local cf = d.cf :: CFrame
+		position = cf.Position
+		rotation = cf - cf.Position
+	else
+		position = Vector3.new(d.offset[1], d.offset[2], d.offset[3])
+		local r = d.rotation
+		if r then
+			rotation = CFrame.Angles(math.rad(r[1]), math.rad(r[2]), math.rad(r[3]))
 		end
 	end
-end
-
-for gearName, pieces in GearData :: { [string]: { GearData.Piece } } do
-	if GEAR[gearName] == nil then
-		GEAR[gearName] = dataGear(pieces)
+	local size = scaledSize(Vector3.new(d.size[1], d.size[2], d.size[3]), rotation, sc)
+	if d.shape == "Ball" then
+		local m = math.min(size.X, size.Y, size.Z)
+		size = Vector3.new(m, m, m)
+	elseif d.shape == "Cylinder" then
+		local m = math.min(size.Y, size.Z)
+		size = Vector3.new(size.X, m, m)
 	end
+	attach(
+		ctx,
+		d.limb,
+		d.name,
+		size,
+		CFrame.new(position * sc) * rotation,
+		tone(ctx.look, d.color),
+		material(d.material),
+		d.shape,
+		d.transparency
+	)
 end
 
+local GEAR: { [string]: { GearData.Piece } } = GearData :: any
 RigBuilder.GEAR = GEAR
 
--- Body layout at scale 1 (studs, rig faces -Z, feet at y = 0): name, size, center, color slot.
+-- Bones at scale 1 (studs, rig faces -Z, feet at y = 0): name, size, center. Arm bones move out with the build's
+-- shoulder width, leg bones with its stance.
 type PartSpec = { name: string, size: Vector3, center: Vector3, slot: string }
 local BODY: { PartSpec } = {
 	{ name = "LowerTorso", size = Vector3.new(2, 0.8, 1), center = Vector3.new(0, 3.1, 0), slot = "primary" },
@@ -524,94 +253,408 @@ local JOINTS: { JointSpec } = {
 	{ name = "RightAnkle", from = "RightLowerLeg", to = "RightFoot", pivot = Vector3.new(0.5, 0.3, 0) },
 }
 
+-- Bones and joints (name without Left/Right) that move out with the build's shoulder width or stance.
+local ARM_BONES = { UpperArm = true, LowerArm = true, Hand = true, Shoulder = true, Elbow = true, Wrist = true }
+local LEG_BONES = { UpperLeg = true, LowerLeg = true, Foot = true, Hip = true, Knee = true, Ankle = true }
+
 -- Height of the root part's center above the feet at scale 1.
 RigBuilder.STAND_HEIGHT = 3.1
+-- Heads are drawn a bit larger than the R15 bone for appeal and readable faces.
+RigBuilder.HEAD_SCALE = 1.12
+-- Soft budget per rig (tests hold every launch fighter to it).
+RigBuilder.PART_BUDGET = 125
 
--- Gear that covers the lower face (no mouth) or the whole face (no brows either).
-local COVERS_MOUTH = { mask = true, bandana = true, helmet_visor = true, mech_visor = true }
-local COVERS_FACE = { knight_helm = true, great_helm = true, mech_visor = true }
+-- Gear that covers the lower face (no mouth or nose), the whole face (no features at all), or the ears.
+local COVERS_MOUTH = { ninja_mask = true, bandana = true, helmet_visor = true }
+local COVERS_FACE = { knight_helm = true, dragon_helm = true, mech_head = true }
+local HIDES_EARS = {
+	knight_helm = true,
+	dragon_helm = true,
+	mech_head = true,
+	helmet_visor = true,
+	ninja_hood = true,
+	hood = true,
+	winged_helm = true,
+	bunny_ears = true,
+	fox_ears = true,
+	rock_head = true,
+	hair_long = true,
+	hair_bob = true,
+	frost_hair = true,
+	flame_crest = true,
+	fox_hair = true,
+}
 
--- Face: eyes (white with a dark pupil, or glowing slits), brows with a determined tilt and a short mouth.
-local function face(model: Model, look: Looks.Look)
-	local glow = look.glowEyes == true
-	local h = look.scale.head
-	local front = -0.6 * h - 0.01
-	local mouth, brows = true, true
-	for _, gear in look.gear do
-		if COVERS_MOUTH[gear] then
-			mouth = false
-		end
-		if COVERS_FACE[gear] then
-			mouth, brows = false, false
+local function isSide(name: string): number
+	return if string.sub(name, 1, 4) == "Left" then -1 else 1
+end
+
+-- The sculpted body: capsule limbs with ball joints, a tapered chest, pelvis and belt, fists, boots, neck and head.
+local function sculpt(ctx: Ctx)
+	local look, b = ctx.look, ctx.build
+	local skinMat = material(look.skinMaterial or "SmoothPlastic")
+	local clothMat = material(look.material or "SmoothPlastic")
+	local skin = color(look.skin)
+	local top = tone(look, "primary")
+	local sleeves = tone(look, look.sleeves or "primary")
+	local forearms = tone(look, look.forearms or look.sleeves or "primary")
+	local sleeveMat = if (look.sleeves or "primary") == "skin" then skinMat else clothMat
+	local forearmMat = if (look.forearms or look.sleeves or "primary") == "skin" then skinMat else clothMat
+	local hands = tone(look, look.gloves or "skin")
+	local handMat = if look.gloves then material("Leather") else skinMat
+	local pants = tone(look, "secondary")
+	local boots = tone(look, look.boots or "secondary*0.55")
+	local soles = boots:Lerp(Color3.fromRGB(20, 18, 24), 0.6)
+	local vertical = CFrame.Angles(0, 0, math.rad(90))
+	local alongZ = CFrame.Angles(0, math.rad(90), 0)
+
+	local function box(bone: string, name: string, size: Vector3, at: Vector3, c: Color3, m: Enum.Material)
+		local sc = ctx.scales[bone]
+		attach(ctx, bone, name, size * sc, CFrame.new(at * sc), c, m)
+	end
+	local function vcyl(bone: string, name: string, len: number, d: number, at: Vector3, c: Color3, m: Enum.Material)
+		local sc = ctx.scales[bone]
+		local dd = d * math.min(sc.X, sc.Z)
+		attach(ctx, bone, name, Vector3.new(len * sc.Y, dd, dd), CFrame.new(at * sc) * vertical, c, m, "Cylinder")
+	end
+	local function ball(bone: string, name: string, d: number, at: Vector3, c: Color3, m: Enum.Material)
+		local sc = ctx.scales[bone]
+		local dd = d * math.min(sc.X, sc.Z)
+		attach(ctx, bone, name, Vector3.new(dd, dd, dd), CFrame.new(at * sc), c, m, "Ball")
+	end
+
+	-- Torso: broad chest tapering to the waist (wedges at the flanks), traps sloping into the neck.
+	local chestW, waistW = b.chest, b.waist
+	box("UpperTorso", "Chest", Vector3.new(chestW, 0.95, 1.0), Vector3.new(0, 0.33, 0), top, clothMat)
+	box(
+		"UpperTorso",
+		"Abdomen",
+		Vector3.new(waistW, 0.8, 0.86),
+		Vector3.new(0, -0.42, 0.02),
+		top:Lerp(Color3.new(0, 0, 0), 0.12),
+		clothMat
+	)
+	local flank = (chestW - waistW) / 2
+	if flank > 0.04 then
+		local sc = ctx.scales.UpperTorso
+		for side = -1, 1, 2 do
+			local x = (waistW / 2 + flank / 2) * side
+			local cf =
+				CFrame.fromMatrix(Vector3.new(x, -0.49, 0.02) * sc, Vector3.new(0, 0, -side), Vector3.new(0, -1, 0))
+			attach(
+				ctx,
+				"UpperTorso",
+				"Flank",
+				Vector3.new(0.86 * sc.Z, 0.7 * sc.Y, flank * sc.X),
+				cf,
+				top:Lerp(Color3.new(0, 0, 0), 0.12),
+				clothMat,
+				"Wedge"
+			)
 		end
 	end
-	local dark = Color3.fromRGB(25, 22, 30)
-	for side = -1, 1, 2 do
-		if glow then
-			piece(
-				model,
-				"Head",
-				"Eye",
-				Vector3.new(0.28 * h, 0.12 * h, 0.05),
-				CFrame.new(0.24 * h * side, 0.08 * h, front),
-				color(look.glow),
-				Enum.Material.Neon
+	do
+		local sc = ctx.scales.UpperTorso
+		for side = -1, 1, 2 do
+			local w = chestW / 2 - 0.3
+			local cf = CFrame.fromMatrix(
+				Vector3.new((0.3 + w / 2) * side, 0.9, 0.05) * sc,
+				Vector3.new(0, 0, side),
+				Vector3.new(0, 1, 0)
 			)
-		else
-			piece(
-				model,
-				"Head",
-				"EyeWhite",
-				Vector3.new(0.24 * h, 0.24 * h, 0.04),
-				CFrame.new(0.24 * h * side, 0.08 * h, front),
-				Color3.fromRGB(245, 245, 250),
-				Enum.Material.SmoothPlastic
-			)
-			piece(
-				model,
-				"Head",
-				"Eye",
-				Vector3.new(0.12 * h, 0.17 * h, 0.05),
-				CFrame.new(0.21 * h * side, 0.06 * h, front - 0.01),
-				dark,
-				Enum.Material.SmoothPlastic
-			)
-		end
-		if brows then
-			piece(
-				model,
-				"Head",
-				"Brow",
-				Vector3.new(0.3 * h, 0.07 * h, 0.05),
-				CFrame.new(0.24 * h * side, 0.29 * h, front - 0.005) * CFrame.Angles(0, 0, math.rad(14 * side)),
-				if look.hair then color(look.hair):Lerp(dark, 0.5) else dark,
-				Enum.Material.SmoothPlastic
+			attach(
+				ctx,
+				"UpperTorso",
+				"Trap",
+				Vector3.new(0.75 * sc.Z, 0.2 * sc.Y, w * sc.X),
+				cf,
+				top:Lerp(Color3.new(1, 1, 1), 0.06),
+				clothMat,
+				"Wedge"
 			)
 		end
 	end
-	if mouth and not glow then
-		piece(
-			model,
-			"Head",
-			"Mouth",
-			Vector3.new(0.3 * h, 0.06 * h, 0.04),
-			CFrame.new(0.02 * h, -0.28 * h, front),
-			Color3.fromRGB(90, 40, 40),
+	vcyl("UpperTorso", "Neck", 0.6, b.neck, Vector3.new(0, 0.95, 0.02), tone(look, look.neck or "skin"), skinMat)
+
+	-- Pelvis, belt and buckle.
+	box("LowerTorso", "Pelvis", Vector3.new(b.hip, 0.62, 0.92), Vector3.new(0, 0.05, 0), pants, clothMat)
+	box("LowerTorso", "Crotch", Vector3.new(0.7, 0.4, 0.8), Vector3.new(0, -0.3, 0), pants, clothMat)
+	if look.belt ~= "none" then
+		local beltColor = tone(look, look.belt or "leather")
+		box(
+			"LowerTorso",
+			"Belt",
+			Vector3.new(math.max(b.hip, b.waist) + 0.06, 0.2, 0.96),
+			Vector3.new(0, 0.32, 0),
+			beltColor,
+			Enum.Material.Leather
+		)
+		box(
+			"LowerTorso",
+			"Buckle",
+			Vector3.new(0.3, 0.22, 0.06),
+			Vector3.new(0, 0.32, -0.5),
+			tone(look, "gold"),
+			Enum.Material.Metal
+		)
+	end
+
+	-- Arms: deltoid ball at the shoulder pivot, capsule upper arm and forearm, fist with knuckles and thumb.
+	for _, sideName in { "Left", "Right" } do
+		local side = isSide(sideName)
+		local ua, la, hand = sideName .. "UpperArm", sideName .. "LowerArm", sideName .. "Hand"
+		ball(ua, "Deltoid", 0.8, Vector3.new(0, 0.45, 0), sleeves:Lerp(Color3.new(1, 1, 1), 0.05), sleeveMat)
+		vcyl(ua, "Bicep", 1.0, 0.62, Vector3.new(0, -0.05, 0), sleeves, sleeveMat)
+		ball(la, "Elbow", 0.55, Vector3.new(0, 0.55, 0), forearms, forearmMat)
+		vcyl(la, "Forearm", 1.0, 0.56, Vector3.new(0, 0.02, 0), forearms, forearmMat)
+		if look.gloves then
+			vcyl(la, "Cuff", 0.3, 0.64, Vector3.new(0, -0.42, 0), hands:Lerp(Color3.new(0, 0, 0), 0.15), handMat)
+		end
+		box(hand, "Palm", Vector3.new(0.4, 0.42, 0.5), Vector3.new(0, 0.04, 0), hands, handMat)
+		do
+			local sc = ctx.scales[hand]
+			local dd = 0.38 * math.min(sc.X, sc.Y)
+			attach(
+				ctx,
+				hand,
+				"Knuckles",
+				Vector3.new(0.5 * sc.Z, dd, dd),
+				CFrame.new(Vector3.new(0.02 * side, -0.18, 0) * sc) * alongZ,
+				hands,
+				handMat,
+				"Cylinder"
+			)
+			attach(
+				ctx,
+				hand,
+				"Thumb",
+				Vector3.new(0.16, 0.3, 0.16) * sc,
+				CFrame.new(Vector3.new(-0.16 * side, -0.02, -0.2) * sc) * CFrame.Angles(0, 0, math.rad(20 * side)),
+				hands:Lerp(Color3.new(0, 0, 0), 0.06),
+				handMat
+			)
+		end
+	end
+
+	-- Legs: capsule thigh and shin, knee ball, boot shaft, foot with sole and rounded toe.
+	for _, sideName in { "Left", "Right" } do
+		local ul, ll, foot = sideName .. "UpperLeg", sideName .. "LowerLeg", sideName .. "Foot"
+		vcyl(ul, "Thigh", 1.2, 0.76, Vector3.new(0, 0.02, 0), pants, clothMat)
+		ball(ll, "Knee", 0.64, Vector3.new(0, 0.58, 0), pants, clothMat)
+		vcyl(ll, "Shin", 1.05, 0.6, Vector3.new(0, 0.05, 0), pants, clothMat)
+		vcyl(ll, "BootShaft", 0.62, 0.68, Vector3.new(0, -0.32, 0), boots, Enum.Material.Leather)
+		box(
+			foot,
+			"Sole",
+			Vector3.new(0.72, 0.12, 1.22),
+			Vector3.new(0, -0.09, -0.07),
+			soles,
 			Enum.Material.SmoothPlastic
 		)
+		box(foot, "Instep", Vector3.new(0.66, 0.32, 0.82), Vector3.new(0, 0.1, 0.1), boots, Enum.Material.Leather)
+		do
+			local sc = ctx.scales[foot]
+			local dd = 0.4 * math.min(sc.Y * 1.0, sc.Z)
+			attach(
+				ctx,
+				foot,
+				"Toe",
+				Vector3.new(0.66 * sc.X, dd, dd),
+				CFrame.new(Vector3.new(0, 0.03, -0.38) * sc),
+				boots:Lerp(Color3.new(1, 1, 1), 0.06),
+				Enum.Material.Leather,
+				"Cylinder"
+			)
+		end
+	end
+
+	-- Head: a round skull on a slightly narrower cylindrical face; ears unless gear covers them.
+	local hs = ctx.scales.Head.X
+	local head = color(look.skin)
+	attach(ctx, "Head", "Skull", Vector3.one * 1.2 * hs, CFrame.new(0, 0.05 * hs, 0), head, skinMat, "Ball")
+	attach(
+		ctx,
+		"Head",
+		"Face",
+		Vector3.new(0.62 * hs, 1.2 * hs, 1.2 * hs),
+		CFrame.new(0, -0.26 * hs, 0) * vertical,
+		head,
+		skinMat,
+		"Cylinder"
+	)
+	attach(
+		ctx,
+		"Head",
+		"Jaw",
+		Vector3.new(0.2 * hs, 1.0 * hs, 1.0 * hs),
+		CFrame.new(0, -0.6 * hs, -0.02 * hs) * vertical,
+		head,
+		skinMat,
+		"Cylinder"
+	)
+	local ears = true
+	for _, g in look.gear do
+		if HIDES_EARS[g] then
+			ears = false
+		end
+	end
+	if ears then
+		for side = -1, 1, 2 do
+			attach(
+				ctx,
+				"Head",
+				"Ear",
+				Vector3.new(0.14 * hs, 0.32 * hs, 0.32 * hs),
+				CFrame.new(0.6 * side * hs, -0.12 * hs, 0.04 * hs),
+				head:Lerp(Color3.new(0, 0, 0), 0.06),
+				skinMat,
+				"Cylinder"
+			)
+		end
+	end
+end
+
+-- Point on the head surface (head units: radius 0.6, sphere above y = 0.05, cylinder below), facing outward,
+-- `lift` studs in front of the skin, with an extra roll (degrees) for tilted brows and lids.
+local function faceCF(hs: number, x: number, y: number, lift: number, roll: number?): CFrame
+	local r = 0.6
+	local cf: CFrame
+	if y > 0.05 then
+		local elev = math.asin(math.clamp((y - 0.05) / r, -1, 1))
+		local ring = r * math.cos(elev)
+		local yaw = -math.asin(math.clamp(x / ring, -1, 1))
+		cf = CFrame.new(0, 0.05 * hs, 0)
+			* CFrame.Angles(0, yaw, 0)
+			* CFrame.Angles(elev, 0, 0)
+			* CFrame.new(0, 0, -(r * hs + lift))
+	else
+		local yaw = -math.asin(math.clamp(x / r, -1, 1))
+		cf = CFrame.new(0, y * hs, 0) * CFrame.Angles(0, yaw, 0) * CFrame.new(0, 0, -(r * hs + lift))
+	end
+	if roll then
+		cf *= CFrame.Angles(0, 0, math.rad(roll))
+	end
+	return cf
+end
+
+-- Face: big readable eyes (white, colored iris, pupil, highlight, lid line), shaped brows, nose, mouth and blush.
+local function face(ctx: Ctx)
+	local look = ctx.look
+	local f: Looks.Face = look.face or {}
+	local hs = ctx.scales.Head.X
+	local eyes = f.eyes or (if look.glowEyes then "glow" else "sharp")
+	local mouth, brows, nose = f.mouth or "smirk", f.brows or "angry", true
+	for _, gear in look.gear do
+		if COVERS_MOUTH[gear] then
+			mouth, nose = "none", false
+		end
+		if COVERS_FACE[gear] then
+			return
+		end
+	end
+	local skin = color(look.skin)
+	local dark = Color3.fromRGB(28, 22, 34)
+	local lidColor = if look.hair then color(look.hair):Lerp(dark, 0.75) else dark
+	local browColor = if f.browColor
+		then color(f.browColor)
+		elseif look.hair then color(look.hair):Lerp(dark, 0.35)
+		else skin:Lerp(dark, 0.7)
+	local smooth = Enum.Material.SmoothPlastic
+	local function feature(
+		name: string,
+		w: number,
+		h: number,
+		x: number,
+		y: number,
+		lift: number,
+		c: Color3,
+		roll: number?,
+		m: Enum.Material?
+	)
+		attach(ctx, "Head", name, Vector3.new(w * hs, h * hs, 0.03), faceCF(hs, x, y, lift, roll), c, m or smooth)
+	end
+
+	for side = -1, 1, 2 do
+		local ex = 0.24 * side
+		if eyes == "glow" then
+			feature("EyeSocket", 0.3, 0.17, ex, 0.0, 0.0, skin:Lerp(dark, 0.8), 6 * side)
+			feature("Eye", 0.26, 0.08, ex, 0.0, 0.02, color(f.eyeColor or look.glow), 6 * side, Enum.Material.Neon)
+		elseif eyes ~= "none" then
+			local round = eyes == "round"
+			local ew, eh = if round then 0.25 else 0.27, if round then 0.3 else 0.21
+			local iris = color(f.eyeColor or "#3A2A20")
+			feature("EyeWhite", ew, eh, ex, -0.02, 0.0, Color3.fromRGB(248, 248, 252))
+			feature("Iris", 0.17, if round then 0.24 else 0.19, ex - 0.02 * side, -0.035, 0.012, iris)
+			feature("Pupil", 0.09, if round then 0.14 else 0.12, ex - 0.02 * side, -0.04, 0.024, dark)
+			feature("Glint", 0.06, 0.06, ex - 0.02 * side + 0.045, 0.02, 0.036, Color3.new(1, 1, 1))
+			local lidTilt = if round then -6 * side else 9 * side
+			feature("Lid", ew + 0.06, if f.lashes then 0.075 else 0.055, ex, -0.02 + eh / 2, 0.03, lidColor, lidTilt)
+			if f.lashes then
+				feature("Lash", 0.1, 0.05, ex + 0.15 * side, 0.1, 0.03, lidColor, -35 * side)
+			end
+		end
+		if brows ~= "none" then
+			local tilt = if brows == "angry" then 16 elseif brows == "calm" then -4 else -14
+			local by = if brows == "raised" then 0.27 else 0.23
+			feature("Brow", 0.3, 0.075, 0.25 * side, by, 0.03, browColor, tilt * side)
+		end
+		if f.blush then
+			feature("Blush", 0.17, 0.07, 0.38 * side, -0.2, 0.0, skin:Lerp(Color3.fromRGB(255, 110, 130), 0.45))
+		end
+	end
+	if nose and f.nose ~= false then
+		attach(
+			ctx,
+			"Head",
+			"Nose",
+			Vector3.new(0.11 * hs, 0.13 * hs, 0.09),
+			faceCF(hs, 0, -0.15, 0.02),
+			skin:Lerp(dark, 0.12),
+			smooth
+		)
+	end
+	local lip = Color3.fromRGB(110, 46, 50)
+	if mouth == "smirk" then
+		feature("Mouth", 0.22, 0.05, 0.02, -0.33, 0.0, lip, 7)
+		feature("MouthCorner", 0.07, 0.05, 0.14, -0.31, 0.0, lip, 30)
+	elseif mouth == "grin" then
+		feature("Mouth", 0.32, 0.13, 0, -0.33, 0.0, lip)
+		feature("Teeth", 0.27, 0.06, 0, -0.305, 0.01, Color3.fromRGB(250, 248, 240))
+	elseif mouth == "smile" then
+		feature("Mouth", 0.16, 0.05, 0, -0.34, 0.0, lip)
+		for side = -1, 1, 2 do
+			feature("MouthCorner", 0.08, 0.05, 0.1 * side, -0.32, 0.0, lip, 28 * side)
+		end
+	elseif mouth == "frown" then
+		feature("Mouth", 0.18, 0.05, 0, -0.32, 0.0, lip)
+		for side = -1, 1, 2 do
+			feature("MouthCorner", 0.07, 0.05, 0.11 * side, -0.34, 0.0, lip, -28 * side)
+		end
+	elseif mouth == "open" then
+		feature("Mouth", 0.22, 0.14, 0, -0.34, 0.0, lip:Lerp(dark, 0.5))
+		feature("Teeth", 0.2, 0.04, 0, -0.29, 0.01, Color3.fromRGB(250, 248, 240))
+	elseif mouth == "flat" then
+		feature("Mouth", 0.24, 0.05, 0, -0.33, 0.0, lip)
 	end
 end
 
 function RigBuilder.build(fighterId: string): Model
 	local look = Looks.get(fighterId)
 	local s = look.scale
-	local function at(v: Vector3): Vector3
-		return Vector3.new(v.X * s.width, v.Y * s.height, v.Z * s.depth)
+	local b = Looks.BUILDS[look.build or "medium"] or Looks.BUILDS.medium
+	local function at(v: Vector3, name: string?): Vector3
+		local x = v.X
+		local kind = if name then string.gsub(name, "^Left", ""):gsub("^Right", "") else ""
+		if ARM_BONES[kind] then
+			x *= b.shoulder / 1.5
+		elseif LEG_BONES[kind] then
+			x *= b.stance / 0.5
+		end
+		return Vector3.new(x * s.width, v.Y * s.height, v.Z * s.depth)
 	end
 
 	local model = Instance.new("Model")
 	model.Name = fighterId
-	local material = if look.material then (Enum.Material :: any)[look.material] else Enum.Material.SmoothPlastic
 
 	local root = Instance.new("Part")
 	root.Name = "HumanoidRootPart"
@@ -625,30 +668,30 @@ function RigBuilder.build(fighterId: string): Model
 	root.Parent = model
 	model.PrimaryPart = root
 
-	local parts: { [string]: BasePart } = { HumanoidRootPart = root }
+	local parts: Parts = { HumanoidRootPart = root }
 	for _, spec in BODY do
 		local p = Instance.new("Part")
 		p.Name = spec.name
 		local size = Vector3.new(spec.size.X * s.width, spec.size.Y * s.height, spec.size.Z * s.depth)
 		if spec.name == "Head" then
-			size = spec.size * s.head
+			size = spec.size * s.head * RigBuilder.HEAD_SCALE
 		end
 		p.Size = size
-		p.CFrame = CFrame.new(at(spec.center))
-		p.Color = color((look :: any)[spec.slot])
-		p.Material = material
+		p.CFrame = CFrame.new(at(spec.center, spec.name))
+		p.Color = tone(look, spec.slot)
+		p.Material = material(look.material)
+		-- Bones stay invisible: the sculpted body and gear welded to them are what you see.
+		p.Transparency = 1
 		p.CanCollide = false
 		p.CanQuery = false
 		p.CanTouch = false
 		p.Massless = true
-		p.TopSurface = Enum.SurfaceType.Smooth
-		p.BottomSurface = Enum.SurfaceType.Smooth
 		p.Parent = model
 		parts[spec.name] = p
 	end
 	for _, j in JOINTS do
 		local part0, part1 = parts[j.from], parts[j.to]
-		local pivot = CFrame.new(at(j.pivot))
+		local pivot = CFrame.new(at(j.pivot, j.name))
 		local motor = Instance.new("Motor6D")
 		motor.Name = j.name
 		motor.Part0 = part0
@@ -658,15 +701,49 @@ function RigBuilder.build(fighterId: string): Model
 		motor.Parent = part1
 	end
 
-	face(model, look)
+	-- Per-bone scale for data written at scale 1: torso follows width/height/depth (and chest width), limbs also
+	-- their build thickness, the head is uniform.
+	local hs = s.head * RigBuilder.HEAD_SCALE
+	local torso = Vector3.new(s.width, s.height, s.depth)
+	local arm = Vector3.new(s.width * b.arm, s.height, s.depth * b.arm)
+	local leg = Vector3.new(s.width * b.leg, s.height, s.depth * b.leg)
+	local scales: { [string]: Vector3 } = {
+		HumanoidRootPart = torso,
+		UpperTorso = torso,
+		LowerTorso = torso,
+		Head = Vector3.new(hs, hs, hs),
+	}
+	for _, sideName in { "Left", "Right" } do
+		scales[sideName .. "UpperArm"] = arm
+		scales[sideName .. "LowerArm"] = arm
+		scales[sideName .. "Hand"] = arm * b.hand
+		scales[sideName .. "UpperLeg"] = leg
+		scales[sideName .. "LowerLeg"] = leg
+		scales[sideName .. "Foot"] = Vector3.new(s.width * b.leg, s.height, s.depth) * b.foot
+	end
+	local ho = look.headOffset or { 0, 0.3, 0 }
+	local ctx: Ctx = {
+		look = look,
+		build = b,
+		parts = parts,
+		scales = scales,
+		origins = { Head = CFrame.new(ho[1] * hs, ho[2] * hs, ho[3] * hs) },
+		count = 0,
+	}
+
+	sculpt(ctx)
+	face(ctx)
 	for _, gearName in look.gear do
-		local make = GEAR[gearName]
-		if make then
-			make(model, look)
+		local pieces = GEAR[gearName]
+		if pieces then
+			for _, d in pieces do
+				buildPiece(ctx, d)
+			end
 		end
 	end
 	model:SetAttribute("Glow", look.glow)
 	model:SetAttribute("StandHeight", RigBuilder.STAND_HEIGHT * s.height)
+	model:SetAttribute("PartCount", ctx.count)
 	return model
 end
 

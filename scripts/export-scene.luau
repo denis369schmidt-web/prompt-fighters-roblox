@@ -6,6 +6,7 @@
 --   lune run scripts/export-scene.luau arena <arenaId> out.json
 --   lune run scripts/export-scene.luau lobby out.json
 --   lune run scripts/export-scene.luau fighters out.json   (launch roster in a row, for portraits)
+--   lune run scripts/export-scene.luau portrait ninja,golem 30 out.json   (close-up set, turned 30 degrees)
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -59,8 +60,25 @@ elseif kind == "fighters" then
 		end
 		rig.Parent = root
 	end
+elseif kind == "portrait" then
+	-- A few fighters side by side, 5 studs apart, turned by <yaw> degrees (0 = facing the camera at -Z).
+	local RigBuilder = Loader.require(Shared.Visual.RigBuilder)
+	local roblox = require("@lune/roblox")
+	local ids = string.split(process.args[2], ",")
+	local yaw = math.rad(tonumber(process.args[3]) or 0)
+	root = roblox.Instance.new("Model")
+	for i, id in ids do
+		local rig = RigBuilder.build(id)
+		local x = ((#ids + 1) / 2 - i) * 5.5
+		for _, d in rig:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CFrame = roblox.CFrame.new(x, 0, 0) * roblox.CFrame.Angles(0, yaw, 0) * d.CFrame
+			end
+		end
+		rig.Parent = root
+	end
 else
-	error("usage: export-scene.luau arena <id> | lobby | fighters <out.json>")
+	error("usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> <out.json>")
 end
 local out = process.args[#process.args]
 
