@@ -1,0 +1,4 @@
+{"arena":"holo_metropolis","fighters":[
+ {"fighter":"phoenix","at":[-1.2,64.5,6],"facing":1,"move":"fair","stage":"active","stageTime":0.05,"stageLength":0.15,"grounded":false,"t":2},
+ {"fighter":"golem","at":[1.2,60,7],"facing":-1,"move":"fsmash","stage":"windup","stageTime":0.25,"stageLength":0.3,"t":1}
+]}

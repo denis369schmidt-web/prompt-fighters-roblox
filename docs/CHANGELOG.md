@@ -143,3 +143,8 @@
   `Net/Remotes` (Rate-Limits und Argument-Schemas).
 - Test-Runner für Lune mit Rojo-kompatiblem Modul-Loader; 46 Tests.
 - Doku: Architektur, Entscheidungen, Economy, Growth, Live-Ops, Lizenzen und Marken-Check.
+
+## 2026-10-30: Marketing-Artworks
+
+- `export-scene.luau scene`: Arena mit frei platzierten, posierten Kämpfern für Key-Art.
+- `scripts/preview/compose-art.mjs`: Thumbnails (Type Any Fighter, 999%, 16 Fighters), Icon, TikTok-Cover und Quadrat-Post aus Renders plus Text.

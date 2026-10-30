@@ -10,6 +10,8 @@
 --   lune run scripts/export-scene.luau poses spec.json out.json
 --     (pose sheet: spec is a JSON list of { fighter, ...PoseInput fields }; rigs are posed with Visual/Pose and
 --     forward kinematics through the Motor6Ds, eight per row, rows stacked upward)
+--   lune run scripts/export-scene.luau scene spec.json out.json
+--     (key art: an arena with posed fighters placed freely, spec = { arena, fighters = { { fighter, at, yaw?, ... } } })
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -21,6 +23,94 @@ local CFrame = require("@lune/roblox").CFrame
 local Shared = Loader.mount("src/ReplicatedStorage/Shared")
 local Server = Loader.mount("src/ServerScriptService")
 Loader.provide("ReplicatedStorage", { Shared = Shared })
+
+-- Builds a fighter posed by Visual/Pose (spec = { fighter, ...PoseInput fields, joints? }) at `origin`,
+-- with forward kinematics through the Motor6Ds (Lune has no joint solver).
+local function posedRig(spec: any, origin: any): any
+	local RigBuilder = Loader.require(Shared.Visual.RigBuilder)
+	local Pose = Loader.require(Shared.Visual.Pose)
+	local roblox = require("@lune/roblox")
+	local rig = RigBuilder.build(spec.fighter or "ninja")
+	local input: { [string]: any } = {
+		state = "Ready",
+		move = "",
+		stage = "",
+		grounded = true,
+		blocking = false,
+		speed = 0,
+		vy = 0,
+		phase = 0,
+		t = 0,
+	}
+	for k, v in spec do
+		if k ~= "fighter" and k ~= "joints" then
+			input[k] = v
+		end
+	end
+	local pose = Pose.compute(input :: any)
+	-- Optional raw joint overrides for checking conventions: "joints": { "Waist": [x, y, z] }.
+	for name, v in spec.joints or {} do
+		pose.joints[name] = { x = v[1], y = v[2], z = v[3] }
+	end
+	-- Forward kinematics through the Motor6Ds (Lune has no joint solver). Keyed by part name: Lune hands out
+	-- a new userdata per property read, so instances can't be table keys.
+	local body: { [string]: any } = {}
+	local gear: { { part: any, limb: string, rest: any } } = {}
+	for _, d in rig:GetChildren() do
+		if d:IsA("BasePart") then
+			body[d.Name] = { part = d, rest = d.CFrame }
+		end
+	end
+	for _, d in rig:GetDescendants() do
+		local parent = d.Parent
+		if d:IsA("BasePart") and parent and parent ~= rig and body[parent.Name] then
+			table.insert(gear, { part = d, limb = parent.Name, rest = d.CFrame })
+		end
+	end
+	local stand = rig:GetAttribute("StandHeight") :: number
+	local look = roblox.Vector3.new(spec.facing or 1, 0, 0.35).Unit
+	local base = roblox.Vector3.new(0, stand + pose.rootY, 0) + look * (pose.lunge or 0)
+	local placed: { [string]: any } = {
+		-- Same placement as FighterView (CFrame.lookAt toward `look`), built from a yaw because Lune's lookAt
+		-- mirrors the Z axis.
+		HumanoidRootPart = origin
+			* roblox.CFrame.new(base)
+			* roblox.CFrame.Angles(0, math.atan2(-look.X, -look.Z), 0)
+			* roblox.CFrame.Angles(math.rad(-pose.pitch), math.rad(pose.spin), math.rad(pose.roll)),
+	}
+	local motors = {}
+	for _, d in rig:GetDescendants() do
+		if d.ClassName == "Motor6D" then
+			table.insert(motors, d)
+		end
+	end
+	local progress = true
+	while progress do
+		progress = false
+		for _, m in motors do
+			local n0, n1 = (m :: any).Part0.Name, (m :: any).Part1.Name
+			if placed[n0] and not placed[n1] then
+				local a = pose.joints[m.Name]
+				local turn = if a
+					then roblox.CFrame.Angles(math.rad(a.x), math.rad(a.y), math.rad(a.z))
+					else roblox.CFrame.new()
+				placed[n1] = placed[n0] * (m :: any).C0 * turn * (m :: any).C1:Inverse()
+				progress = true
+			end
+		end
+	end
+	for name, entry in body do
+		entry.part.CFrame = placed[name] or entry.rest
+		entry.part:SetAttribute("Posed", true)
+	end
+	-- Gear and face pieces sit on their limb (WeldConstraint): keep the rest offset.
+	for _, g in gear do
+		local limb = body[g.limb]
+		g.part.CFrame = (placed[g.limb] or limb.rest) * limb.rest:Inverse() * g.rest
+		g.part:SetAttribute("Posed", true)
+	end
+	return rig
+end
 
 local kind = process.args[1]
 local root: any
@@ -81,14 +171,11 @@ elseif kind == "portrait" then
 		rig.Parent = root
 	end
 elseif kind == "poses" then
-	local RigBuilder = Loader.require(Shared.Visual.RigBuilder)
-	local Pose = Loader.require(Shared.Visual.Pose)
 	local roblox = require("@lune/roblox")
 	local specs = serde.decode("json", fs.readFile(process.args[2]))
 	root = roblox.Instance.new("Model")
 	local PER_ROW, DX, DY = 8, 8, 10
 	for i, spec in specs do
-		local rig = RigBuilder.build(spec.fighter or "ninja")
 		local col, row = (i - 1) % PER_ROW, (i - 1) // PER_ROW
 		local origin = roblox.CFrame.new((col - (PER_ROW - 1) / 2) * DX, row * DY, 0)
 		local floor = roblox.Instance.new("Part")
@@ -96,89 +183,21 @@ elseif kind == "poses" then
 		floor.CFrame = origin * roblox.CFrame.new(0, -0.1, 0)
 		floor.Color = roblox.Color3.fromRGB(70, 70, 80)
 		floor.Parent = root
-		local input: { [string]: any } = {
-			state = "Ready",
-			move = "",
-			stage = "",
-			grounded = true,
-			blocking = false,
-			speed = 0,
-			vy = 0,
-			phase = 0,
-			t = 0,
-		}
-		for k, v in spec do
-			if k ~= "fighter" and k ~= "joints" then
-				input[k] = v
-			end
-		end
-		local pose = Pose.compute(input :: any)
-		-- Optional raw joint overrides for checking conventions: "joints": { "Waist": [x, y, z] }.
-		for name, v in spec.joints or {} do
-			pose.joints[name] = { x = v[1], y = v[2], z = v[3] }
-		end
-		-- Forward kinematics through the Motor6Ds (Lune has no joint solver). Keyed by part name: Lune hands out
-		-- a new userdata per property read, so instances can't be table keys.
-		local body: { [string]: any } = {}
-		local gear: { { part: any, limb: string, rest: any } } = {}
-		for _, d in rig:GetChildren() do
-			if d:IsA("BasePart") then
-				body[d.Name] = { part = d, rest = d.CFrame }
-			end
-		end
-		for _, d in rig:GetDescendants() do
-			local parent = d.Parent
-			if d:IsA("BasePart") and parent and parent ~= rig and body[parent.Name] then
-				table.insert(gear, { part = d, limb = parent.Name, rest = d.CFrame })
-			end
-		end
-		local stand = rig:GetAttribute("StandHeight") :: number
-		local look = roblox.Vector3.new(spec.facing or 1, 0, 0.35).Unit
-		local base = roblox.Vector3.new(0, stand + pose.rootY, 0) + look * (pose.lunge or 0)
-		local placed: { [string]: any } = {
-			-- Same placement as FighterView (CFrame.lookAt toward `look`), built from a yaw because Lune's lookAt
-			-- mirrors the Z axis.
-			HumanoidRootPart = origin
-				* roblox.CFrame.new(base)
-				* roblox.CFrame.Angles(0, math.atan2(-look.X, -look.Z), 0)
-				* roblox.CFrame.Angles(math.rad(-pose.pitch), math.rad(pose.spin), math.rad(pose.roll)),
-		}
-		local motors = {}
-		for _, d in rig:GetDescendants() do
-			if d.ClassName == "Motor6D" then
-				table.insert(motors, d)
-			end
-		end
-		local progress = true
-		while progress do
-			progress = false
-			for _, m in motors do
-				local n0, n1 = (m :: any).Part0.Name, (m :: any).Part1.Name
-				if placed[n0] and not placed[n1] then
-					local a = pose.joints[m.Name]
-					local turn = if a
-						then roblox.CFrame.Angles(math.rad(a.x), math.rad(a.y), math.rad(a.z))
-						else roblox.CFrame.new()
-					placed[n1] = placed[n0] * (m :: any).C0 * turn * (m :: any).C1:Inverse()
-					progress = true
-				end
-			end
-		end
-		for name, entry in body do
-			entry.part.CFrame = placed[name] or entry.rest
-			entry.part:SetAttribute("Posed", true)
-		end
-		-- Gear and face pieces sit on their limb (WeldConstraint): keep the rest offset.
-		for _, g in gear do
-			local limb = body[g.limb]
-			g.part.CFrame = (placed[g.limb] or limb.rest) * limb.rest:Inverse() * g.rest
-			g.part:SetAttribute("Posed", true)
-		end
-		rig.Parent = root
+		posedRig(spec, origin).Parent = root
+	end
+elseif kind == "scene" then
+	-- An arena with posed fighters placed freely, for key art: { arena, fighters = { { fighter, at = {x, y, z}, ... } } }.
+	local roblox = require("@lune/roblox")
+	local spec = serde.decode("json", fs.readFile(process.args[2]))
+	root = Loader.require(Server.World.ArenaBuilder).build(spec.arena)
+	for _, f in spec.fighters do
+		local at = f.at or { 0, 0, 0 }
+		posedRig(f, roblox.CFrame.new(at[1], at[2], at[3]) * roblox.CFrame.Angles(0, math.rad(f.yaw or 0), 0)).Parent =
+			root
 	end
 else
 	error(
-		"usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> | poses <spec.json> <out.json>"
+		"usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> | poses <spec.json> | scene <spec.json> <out.json>"
 	)
 end
 local out = process.args[#process.args]

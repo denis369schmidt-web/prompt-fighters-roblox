@@ -1,0 +1,4 @@
+{"arena":"holo_metropolis","fighters":[
+ {"fighter":"golem","at":[-3.8,60,6],"facing":1,"move":"fsmash","stage":"active","stageTime":0.05,"stageLength":0.12,"t":1},
+ {"fighter":"ninja","at":[2.8,61.6,6],"facing":-1,"state":"HitStun","stateTime":0.05,"grounded":false,"vx":20,"vy":6,"t":1}
+]}

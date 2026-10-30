@@ -1,0 +1,7 @@
+{"arena":"holo_metropolis","fighters":[
+ {"fighter":"golem","at":[-7.5,60,4],"facing":1,"t":1.3},
+ {"fighter":"phoenix","at":[-3.2,60,6.5],"facing":1,"move":"nspecial","stage":"windup","stageTime":0.2,"stageLength":0.3,"t":0.4},
+ {"fighter":"ninja","at":[0.6,60,8],"facing":-1,"t":2},
+ {"fighter":"celestial_fox","at":[4.4,60,6.5],"facing":-1,"t":0.9},
+ {"fighter":"cyborg_mech","at":[8.6,60,4],"facing":-1,"t":2.5}
+]}
