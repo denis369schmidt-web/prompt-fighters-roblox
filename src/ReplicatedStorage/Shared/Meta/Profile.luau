@@ -3,6 +3,7 @@
 -- free fighter unlocks every few wins), the 7-day login calendar and buying fighters with coins.
 -- No Roblox services here: the server (Server/Data/PlayerData) loads and saves, tests call these directly.
 
+local Constants = require(script.Parent.Parent.Data.Constants)
 local Fighters = require(script.Parent.Parent.Data.Fighters)
 local PromptCode = require(script.Parent.Parent.Prompt.Code)
 local Progression = require(script.Parent.Parent.Data.Progression)
@@ -21,10 +22,21 @@ export type Profile = {
 	loginDay: number, -- day number (days since 1970) of the last login reward
 	loginStreak: number, -- 1..7, day of the login calendar reached
 	promptFighters: { string }, -- share codes of the last prompt fighters (Prompt/Code), newest first
+	weekKey: number, -- week (Meta/Leaderboards.weekKey) that weekWins counts
+	weekWins: number, -- wins in that week (weekly leaderboard)
+	groupBonus: boolean, -- the one-time group-join coin bonus was paid
+	settings: Settings,
 	-- Daily Challenge and Boss-Raid (Meta/ModeRewards); older saves get the defaults through migrate
 	challengeDay: number, -- day number of the last completed daily challenge (paid once per day)
 	challengeStreak: number, -- 1..7, streak day reached
 	bossWins: { [string]: number }, -- boss id -> raid victories (the first one pays a bonus and a title)
+}
+
+-- Player options from the settings panel (UI/Settings), applied on the client.
+export type Settings = {
+	reduceShake: boolean, -- Kamera-Wackeln reduzieren
+	sound: boolean, -- Sound an/aus
+	lowParticles: boolean, -- Grafik: weniger Partikel
 }
 
 export type MatchStats = {
@@ -53,6 +65,10 @@ Profile.VERSION = 2
 Profile.START_COINS = 150
 Profile.PROMPT_HISTORY = 3
 
+function Profile.defaultSettings(): Settings
+	return { reduceShake = false, sound = true, lowParticles = false }
+end
+
 function Profile.new(): Profile
 	return {
 		version = Profile.VERSION,
@@ -70,6 +86,10 @@ function Profile.new(): Profile
 		challengeDay = 0,
 		challengeStreak = 0,
 		bossWins = {},
+		weekKey = 0,
+		weekWins = 0,
+		groupBonus = false,
+		settings = Profile.defaultSettings(),
 	}
 end
 
@@ -102,10 +122,49 @@ function Profile.migrate(data: any): Profile
 	end
 	fresh.bossWins = wins
 	fresh.challengeStreak = math.clamp(math.floor(fresh.challengeStreak), 0, 7)
+	-- Settings: known keys with the right type survive, the rest falls back to the defaults.
+	local settings = Profile.defaultSettings()
+	local savedSettings = if type(data.settings) == "table" then data.settings else {}
+	for key, default in settings :: any do
+		if type(savedSettings[key]) == type(default) then
+			(settings :: any)[key] = savedSettings[key]
+		end
+	end
+	fresh.settings = settings
+	fresh.weekWins = math.max(0, math.floor(fresh.weekWins))
 	fresh.version = Profile.VERSION
 	fresh.level = math.max(1, math.floor(fresh.level))
 	fresh.coins = math.max(0, math.floor(fresh.coins))
 	return fresh
+end
+
+-- Counts a win for the weekly leaderboard; a new week starts again at 0.
+function Profile.addWeeklyWin(profile: Profile, week: number)
+	if profile.weekKey ~= week then
+		profile.weekKey = week
+		profile.weekWins = 0
+	end
+	profile.weekWins += 1
+end
+
+-- One-time coin bonus for joining the Roblox group (the server checks the membership). Returns the coins paid.
+function Profile.claimGroupBonus(profile: Profile): number
+	if profile.groupBonus then
+		return 0
+	end
+	profile.groupBonus = true
+	profile.coins += Constants.GROUP_BONUS_COINS
+	return Constants.GROUP_BONUS_COINS
+end
+
+-- Changes one setting from the settings panel. Unknown keys and wrong types are refused.
+function Profile.setSetting(profile: Profile, key: string, value: any): boolean
+	local defaults = Profile.defaultSettings() :: any
+	if type(key) ~= "string" or defaults[key] == nil or type(value) ~= type(defaults[key]) then
+		return false
+	end
+	(profile.settings :: any)[key] = value
+	return true
 end
 
 -- Remembers a prompt fighter by its share code (newest first, at most PROMPT_HISTORY, no duplicates).
@@ -272,6 +331,7 @@ function Profile.view(profile: Profile): { [string]: any }
 		challengeDay = profile.challengeDay,
 		challengeStreak = profile.challengeStreak,
 		bossWins = table.clone(profile.bossWins),
+		settings = table.clone(profile.settings),
 	}
 end
 

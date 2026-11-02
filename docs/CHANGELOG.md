@@ -1,5 +1,18 @@
 # Changelog
 
+## Bestenlisten, Analytics, Einladen, Einstellungen, Touch und Match-Tempo (2026-11-02)
+
+- Lobby-Bestenliste wechselt alle 10 s zwischen SIEGE DIESE WOCHE, SIEGE GESAMT und HÖCHSTES LEVEL
+  (OrderedDataStores, Anzeigenamen, `Server/Leaderboard/LeaderboardService`, Regeln in `Meta/Leaderboards`).
+- Analytics (`Server/Analytics/Analytics`): Onboarding-Funnel, Funnel „Spielrunde“, Münz-Economy-Events.
+- FREUNDE EINLADEN und EINSTELLUNGEN in der Lobby (`UI/Settings`): Kamera-Wackeln reduzieren, Sound,
+  weniger Partikel (im Profil gespeichert, `SaveSetting`), Benachrichtigungen erlauben. Einmaliger Gruppenbonus.
+- Touch-Steuerung neu (`UI/TouchButtons`): größere Knöpfe in der Safe Area, sichtbarer Stick, AUSWEICHEN,
+  SUPER!-Anzeige, Finisher-Hinweis für Touch. Tastatur O / Gamepad L2 = Ausweichen.
+- Lobby-HUD rutscht unter die Roblox-Leiste; oben rechts bleibt Platz für den Shop-Knopf.
+- Match-Tempo: 2 Stocks im Jeder-gegen-jeden, etwas stärkere Abschüsse bei hohem Prozent; Matches enden
+  meist nach 60–120 s durch KOs statt durch die Uhr (`scripts/pacing.luau`).
+
 ## Bots mit Charakter, Match-Kino und Revanche (2026-11-02)
 
 - Bots (`Combat/Bot`): Persönlichkeit aus dem Archetyp (Draufgänger, Fernkämpfer, Packer, Konterer, Allrounder),

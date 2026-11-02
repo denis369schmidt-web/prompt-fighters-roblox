@@ -42,6 +42,8 @@ local Remotes: { [string]: RemoteDef } = {
 	SubmitPrompt = { kind = "function", direction = "toServer", perSecond = 0.5, args = { "string" }, maxLength = 120 },
 	LoadPromptCode = { kind = "function", direction = "toServer", perSecond = 1, args = { "string" }, maxLength = 16 },
 	ClaimReward = { kind = "function", direction = "toServer", perSecond = 2, args = { "string" } },
+	-- Settings panel: option key (Profile.Settings) and its new value.
+	SaveSetting = { kind = "event", direction = "toServer", perSecond = 4, args = { "string", "boolean" } },
 }
 
 return Remotes

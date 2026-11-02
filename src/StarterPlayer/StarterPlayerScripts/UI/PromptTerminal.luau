@@ -18,6 +18,7 @@ local Interpreter = require(Shared:WaitForChild("Prompt"):WaitForChild("Interpre
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local Hud = require(script.Parent.Hud)
+local Layout = require(script.Parent.Layout)
 
 local PromptTerminal = {}
 
@@ -240,6 +241,12 @@ function PromptTerminal.start()
 	-- Small button that brings the terminal back.
 	local reopen = button(gui, "✦ NEUER PROMPT", UDim2.fromOffset(200, 44), UDim2.new(0.5, -100, 0, 14), PINK)
 	reopen.Visible = false
+	-- Button and panel start below the Roblox top bar (UI/Layout), on every screen size.
+	Layout.watch(function()
+		local top = Layout.top(uiScale.Scale)
+		reopen.Position = UDim2.new(0.5, -100, 0, top)
+		panel.Position = UDim2.new(0.5, 0, 0, top)
+	end)
 
 	---------------------------------------------------------------------------------------------------------
 	-- Reveal overlay

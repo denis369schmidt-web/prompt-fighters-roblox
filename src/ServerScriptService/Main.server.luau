@@ -12,12 +12,16 @@ local Products = require(Data.Products)
 local MatchService = require(script.Parent.Match.MatchService)
 local PlayerData = require(script.Parent.Data.PlayerData)
 local PromptService = require(script.Parent.Prompt.PromptService)
+local Analytics = require(script.Parent.Analytics.Analytics)
+local LeaderboardService = require(script.Parent.Leaderboard.LeaderboardService)
 
 print(
 	`[PromptFighters] data loaded: {#Fighters.list} fighters, {#Arenas.list} arenas, {#Bosses.order} bosses, `
 		.. `{#Weapons.classic + #Weapons.shop} weapons, {#Products.GAME_PASSES} game passes`
 )
 
+Analytics.start() -- before PlayerData, so the first join is logged
 PlayerData.start()
 MatchService.start()
 PromptService.start()
+LeaderboardService.start()
