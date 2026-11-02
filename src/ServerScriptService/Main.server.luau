@@ -12,6 +12,7 @@ local Products = require(Data.Products)
 local MatchService = require(script.Parent.Match.MatchService)
 local PlayerData = require(script.Parent.Data.PlayerData)
 local PromptService = require(script.Parent.Prompt.PromptService)
+local ShopService = require(script.Parent.Shop.ShopService)
 
 print(
 	`[PromptFighters] data loaded: {#Fighters.list} fighters, {#Arenas.list} arenas, {#Bosses.order} bosses, `
@@ -21,3 +22,4 @@ print(
 PlayerData.start()
 MatchService.start()
 PromptService.start()
+ShopService.start()

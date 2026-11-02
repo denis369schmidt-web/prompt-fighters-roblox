@@ -94,6 +94,7 @@ type View = {
 	ice: Part,
 	wings: { Part },
 	scale: number,
+	ko: string?, -- equipped KO effect (Data/Cosmetics), shown when this fighter scores a KO
 }
 
 local STATUS = Simulation.STATUS
@@ -106,6 +107,8 @@ local FighterView = {}
 
 local views: { [number]: View } = {}
 local folder: Folder? = nil
+-- Who hit each fighter last (from hit events), so a ring-out shows the scorer's KO effect.
+local lastHitBy: { [number]: number } = {}
 
 function FighterView.toWorld(x: number, y: number): Vector3
 	return Vector3.new(x * M, BASE_Y + y * M, 0)
@@ -117,6 +120,7 @@ local function clear()
 	end
 	folder = nil
 	table.clear(views)
+	table.clear(lastHitBy)
 end
 
 local function trailBetween(part: BasePart, a: Vector3, b: Vector3, color: Color3, lifetime: number): Trail
@@ -161,7 +165,7 @@ local function build()
 	f.Parent = workspace
 	folder = f
 	for i, slot in MatchState.slots do
-		local model = RigBuilder.build(slot.fighterId)
+		local model = RigBuilder.build(slot.fighterId, slot.skin)
 		local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
 		local standHeight = (model:GetAttribute("StandHeight") :: number?) or RigBuilder.STAND_HEIGHT
 		local motors: { [string]: Motor6D } = {}
@@ -170,7 +174,7 @@ local function build()
 				motors[d.Name] = d
 			end
 		end
-		local look = Looks.get(slot.fighterId)
+		local look = Looks.resolve(slot.fighterId, slot.skin)
 		local glow = Color3.fromHex(look.glow)
 		local slotColor = Color3.fromHex(Visuals.SLOT_COLORS[i] or "#FFFFFF")
 
@@ -326,6 +330,7 @@ local function build()
 			vy = 0,
 			lastY = 0,
 			glow = glow,
+			ko = slot.ko,
 			trail = trail,
 			tumble = tumble,
 			shield = shield,
@@ -703,6 +708,9 @@ local function onHit(event: { [string]: any })
 		return
 	end
 	local attacker = views[event.actor]
+	if event.actor ~= event.target then
+		lastHitBy[event.target] = event.actor
+	end
 	local damage = event.damage or 5
 	local impact = GameFeel.impact(damage, event.impulse, event.superHit, event.special)
 	local color = if attacker then attacker.glow else Color3.new(1, 0.9, 0.5)
@@ -772,7 +780,14 @@ local function onRingOut(event: { [string]: any })
 		end
 		decisive = standing <= 1
 	end
-	Effects.knockout(FighterView.toWorld(x, y), color, Vector3.new(dx, dy, 0), decisive)
+	local scorer = views[lastHitBy[event.actor] or 0]
+	Effects.knockout(
+		FighterView.toWorld(x, y),
+		color,
+		Vector3.new(dx, dy, 0),
+		decisive,
+		if scorer then scorer.ko else nil
+	)
 	Sfx.play("heavy", 1, 0.6)
 	Sfx.play("slash", 0.8, 0.7)
 	if decisive then
@@ -1033,7 +1048,13 @@ function FighterView.start()
 			local view = views[event.target]
 			if view then
 				local actor = views[event.actor]
-				Effects.knockout(chest(view), if actor then actor.glow else view.glow, Vector3.yAxis, true)
+				Effects.knockout(
+					chest(view),
+					if actor then actor.glow else view.glow,
+					Vector3.yAxis,
+					true,
+					if actor then actor.ko else nil
+				)
 				Juice.hold(0.15)
 				Sfx.play("heavy", 1, 0.55)
 			end

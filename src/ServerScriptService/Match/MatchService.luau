@@ -23,6 +23,7 @@ local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 local PromptService = require(script.Parent.Parent.Prompt.PromptService)
+local ShopService = require(script.Parent.Parent.Shop.ShopService)
 
 local LOBBY_SECONDS = 20 -- after the first fighter pick, time to vote and for friends to pick
 local READY_SECONDS = 5 -- once every player in the server has picked
@@ -147,12 +148,16 @@ local function broadcastState()
 					for i, slot in current.slots do
 						local def = Fighters.get(slot.fighterId)
 						local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
+						-- Equipped cosmetics, display only (Shop/ShopService); the simulation never sees them.
+						local profile = if player then PlayerData.get(player) else nil
 						out[i] = {
 							fighterId = slot.fighterId,
 							name = def.name,
 							element = def.element,
 							userId = slot.userId,
 							player = if player then player.DisplayName else nil,
+							skin = if profile then Profile.equippedSkin(profile, slot.fighterId) else nil,
+							ko = if profile then Profile.equippedKoEffect(profile) else nil,
 						}
 					end
 					return out
@@ -356,7 +361,8 @@ local function rewardPlayers(current: MatchRunner.Runner)
 			}
 			local extra: { [string]: any } = {}
 			PlayerData.update(player, function(profile)
-				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats)
+				local coinBonuses, xpBonus = ShopService.matchBonuses(player)
+				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats, coinBonuses, xpBonus)
 			end, extra)
 		end
 	end

@@ -77,6 +77,11 @@ function MetaHud.start()
 	bar.Visible = false
 	bar.Parent = gui
 	corner(bar, 10)
+	-- Frame of the equipped name plate (Data/Cosmetics PLATES); hidden without one.
+	local plateStroke = Instance.new("UIStroke")
+	plateStroke.Thickness = 2
+	plateStroke.Enabled = false
+	plateStroke.Parent = bar
 	local level = text(bar, "LV 1", UDim2.fromOffset(150, 20), UDim2.fromOffset(10, 6), 18)
 	level.TextXAlignment = Enum.TextXAlignment.Left
 	local coins = text(bar, "🪙 0", UDim2.fromOffset(110, 20), UDim2.new(1, -120, 0, 6), 18)
@@ -182,6 +187,10 @@ function MetaHud.start()
 
 	ProfileState.onChange(function(view)
 		level.Text = `LV {view.level} · {view.title}`
+		plateStroke.Enabled = view.frame ~= nil
+		if view.frame then
+			plateStroke.Color = Color3.fromHex(view.frame)
+		end
 		coins.Text = `🪙 {view.coins}`
 		xpFill:TweenSize(
 			UDim2.fromScale(math.clamp(view.xp / math.max(1, view.xpNext), 0, 1), 1),

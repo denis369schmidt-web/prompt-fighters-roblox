@@ -7,7 +7,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MatchRunner = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Combat"):WaitForChild("MatchRunner"))
 
-export type SlotInfo = { fighterId: string, name: string, element: string, userId: number?, player: string? }
+-- skin / ko: the player's equipped cosmetics (Data/Cosmetics), display only.
+export type SlotInfo = {
+	fighterId: string,
+	name: string,
+	element: string,
+	userId: number?,
+	player: string?,
+	skin: string?,
+	ko: string?,
+}
 
 local MatchState = {
 	phase = "lobby",

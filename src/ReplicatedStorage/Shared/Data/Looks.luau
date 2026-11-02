@@ -4,6 +4,7 @@
 -- assets, no look-alikes of known characters). Fighters without an entry get a look from their element color, so
 -- every roster fighter is playable before it gets a hand-made look.
 
+local Cosmetics = require(script.Parent.Cosmetics)
 local Fighters = require(script.Parent.Fighters)
 local Visuals = require(script.Parent.Visuals)
 
@@ -429,6 +430,37 @@ function Looks.get(fighterId: string): Look
 		face = { eyes = "sharp", brows = "angry", mouth = "smirk" },
 		gloves = shade(color, 0.35),
 	}
+end
+
+-- A fighter's look with a skin (Data/Cosmetics) applied: only colors and materials change, so the silhouette and
+-- every size stay the same. Unknown skins, or skins for another fighter, give the normal look. Cached per pair.
+local skinned: { [string]: Look } = {}
+function Looks.resolve(fighterId: string, skinId: string?): Look
+	local base = Looks.get(fighterId)
+	if skinId == nil or skinId == "" then
+		return base
+	end
+	local found = Cosmetics.skin(skinId :: string)
+	if found == nil or not Cosmetics.fits(found :: Cosmetics.Skin, fighterId) then
+		return base
+	end
+	local skin = found :: Cosmetics.Skin
+	local cacheKey = `{fighterId}|{skinId}`
+	local cached = skinned[cacheKey]
+	if cached then
+		return cached
+	end
+	local look = table.clone(base)
+	for _, field in Cosmetics.SKIN_FIELDS do
+		local value = skin.look[field]
+		-- Gloves and belts add parts: a skin may recolor them but never add or remove them.
+		local adds = (field == "gloves" and base.gloves == nil) or (field == "belt" and base.belt == "none")
+		if value ~= nil and not adds then
+			(look :: any)[field] = value
+		end
+	end
+	skinned[cacheKey] = look
+	return look
 end
 
 return Looks
