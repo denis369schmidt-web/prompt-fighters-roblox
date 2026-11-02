@@ -42,8 +42,8 @@ return {
 	},
 	cyber_stadium = {
 		motif = "stadium",
-		trim = "#BAE6FD",
-		accent = "#FFFFFF",
+		trim = "#7DD3FC",
+		accent = "#C084FC",
 		weather = "dust",
 		tint = { 0.6, 0.7, 0.95 },
 		variant = "future",
@@ -79,7 +79,7 @@ return {
 	starship_hangar = {
 		motif = "space_interior",
 		trim = "#7DD3FC",
-		accent = "#F8FAFC",
+		accent = "#FB923C",
 		weather = "dust",
 		tint = { 0.3, 0.35, 0.5 },
 	},
@@ -149,12 +149,12 @@ return {
 	ice_works = {
 		motif = "industrial",
 		trim = "#7DD3FC",
-		accent = "#E0F2FE",
+		accent = "#5EEAD4",
 		weather = "snow",
 		tint = { 0.75, 0.85, 1.0 },
 		variant = "frozen",
 	},
-	foundry = { motif = "foundry", trim = "#F97316", accent = "#FDE047", weather = "embers", tint = { 0.7, 0.35, 0.2 } },
+	foundry = { motif = "foundry", trim = "#F97316", accent = "#FBBF24", weather = "embers", tint = { 0.7, 0.35, 0.2 } },
 	smelter = {
 		motif = "foundry",
 		trim = "#EF4444",

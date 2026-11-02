@@ -93,7 +93,7 @@ const MAT = {
 	Wood: { roughness: 0.8 }, WoodPlanks: { roughness: 0.8 }, Fabric: { roughness: 1 },
 	Sand: { roughness: 1 }, Sandstone: { roughness: 0.95 }, Snow: { roughness: 1 }, Grass: { roughness: 1 },
 	Rock: { roughness: 1 }, Cobblestone: { roughness: 0.95 }, Brick: { roughness: 0.95 }, Asphalt: { roughness: 0.9 },
-	Ground: { roughness: 1 }, Leather: { roughness: 0.7 }, ForceField: { roughness: 0.2, glass: true },
+	Ground: { roughness: 1 }, Basalt: { roughness: 0.9 }, Leather: { roughness: 0.7 }, ForceField: { roughness: 0.2, glass: true },
 };
 
 function wedgeGeometry(x, y, z) {
@@ -106,15 +106,17 @@ function wedgeGeometry(x, y, z) {
 	return g;
 }
 
-function textTexture(part, texts) {
-	const [sx, sy] = part.size;
+function textTexture(part, texts, sx, sy) {
 	const ppu = 32;
 	const canvas = document.createElement("canvas");
 	canvas.width = Math.min(2048, Math.max(64, Math.round(sx * ppu)));
 	canvas.height = Math.min(2048, Math.max(32, Math.round(sy * ppu)));
 	const ctx = canvas.getContext("2d");
-	ctx.fillStyle = "rgb(" + part.color.map((c) => Math.round(c * 255)).join(",") + ")";
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	// A see-through part (floor text) only shows its letters.
+	if (part.transparency < 0.95) {
+		ctx.fillStyle = "rgb(" + part.color.map((c) => Math.round(c * 255)).join(",") + ")";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+	}
 	for (const t of texts) {
 		const [px, py, bw, bh] = t.box;
 		const x = px * canvas.width, y = py * canvas.height, w = bw * canvas.width, h = bh * canvas.height;
@@ -168,13 +170,21 @@ for (const p of data.parts) {
 	mesh.receiveShadow = true;
 	scene.add(mesh);
 	if (p.texts) {
-		const tex = textTexture(p, p.texts);
-		const plane = new THREE.Mesh(new THREE.PlaneGeometry(x, y), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
-		const back = p.texts[0].face === "Back";
-		plane.position.set(0, 0, (back ? 1 : -1) * (z / 2 + 0.02));
-		if (!back) plane.rotation.y = Math.PI;
-		mesh.add(plane);
-		plane.updateMatrix();
+		// One plane per face that carries text (Front = -Z, Back = +Z, Top = +Y with the text's top toward -Z).
+		const faces = {};
+		for (const t of p.texts) (faces[t.face] = faces[t.face] || []).push(t);
+		for (const [face, texts] of Object.entries(faces)) {
+			const top = face === "Top";
+			const [w, h] = top ? [x, z] : [x, y];
+			const tex = textTexture(p, texts, w, h);
+			const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+				new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, transparent: p.transparency >= 0.95 }));
+			if (top) { plane.position.set(0, y / 2 + 0.02, 0); plane.rotation.x = -Math.PI / 2; }
+			else if (face === "Back") plane.position.set(0, 0, z / 2 + 0.02);
+			else { plane.position.set(0, 0, -(z / 2 + 0.02)); plane.rotation.y = Math.PI; }
+			mesh.add(plane);
+			plane.updateMatrix();
+		}
 	}
 }
 

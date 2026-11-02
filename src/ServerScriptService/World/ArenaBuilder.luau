@@ -12,6 +12,9 @@ local ArenaThemes = require(ReplicatedStorage.Shared.Data.ArenaThemes)
 local Arenas = require(ReplicatedStorage.Shared.Data.Arenas)
 local Visuals = require(ReplicatedStorage.Shared.Data.Visuals)
 
+local ArenaDressing = require(script.Parent.ArenaDressing)
+local Decor = require(script.Parent.Decor)
+
 local M = Visuals.STUDS_PER_METER
 local BASE_Y = Visuals.STAGE_Y
 local DEPTH = 20 -- stage depth in studs (toward the camera is +Z)
@@ -190,7 +193,7 @@ local function pine(ctx: Ctx, x: number, z: number, height: number, snowy: boole
 				ctx.model,
 				"Needles",
 				Vector3.new(w * 2, height * 0.22, w),
-				CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, side * math.pi, 0) * CFrame.new(0, 0, -w / 2),
+				CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, side * math.pi + math.pi / 2, 0) * CFrame.new(0, 0, -w / 2),
 				if snowy and k == 3 then rgb(235, 242, 250) else rgb(36, 74, 58),
 				Enum.Material.Grass
 			)
@@ -543,8 +546,15 @@ local function lamp(ctx: Ctx, x: number, z: number)
 	spot.Parent = bulb
 end
 
+-- The far wall that closes the view. Default is far back (parallax layers sit in front of it); it grows with its
+-- distance so it still fills the fight camera's frame.
 local function backWall(ctx: Ctx, color: Color3, material: Enum.Material?, z: number?)
-	return part(ctx.model, "Backdrop", Vector3.new(320, 160, 2), at(0, 10, z or WALL_Z - 60), color, material)
+	local wallZ = z or WALL_Z - 280
+	local distance = 48 - wallZ -- from the fight camera
+	local size = Vector3.new(math.max(320, distance * 1.5), math.max(160, distance * 0.85), 2)
+	local backdrop = part(ctx.model, "Backdrop", size, at(0, 15 - distance * 0.1, wallZ), color, material)
+	backdrop.CastShadow = false
+	return backdrop
 end
 
 local GRAFFITI = { "#FF4DD2", "#4DFFEA", "#FFE14D", "#7CFF4D", "#FF7A2F", "#A07CFF" }
@@ -743,8 +753,8 @@ MOTIFS.temple = function(ctx)
 			tree(ctx, k * 22 + (k % 2) * 6, WALL_Z - 20 - (k % 3) * 14, 30 + (k * 11 % 14), rgb(52, 120, 60))
 		end
 	else
-		backWall(ctx, rgb(14, 14, 34))
-		glowBall(ctx, "Moon", at(46, 58, WALL_Z - 55), 28, rgb(236, 232, 210))
+		backWall(ctx, rgb(14, 14, 34), nil, WALL_Z - 130)
+		glowBall(ctx, "Moon", at(58, 36, WALL_Z - 80), 15, rgb(214, 210, 194))
 	end
 	-- Stepped temple behind the stage.
 	for tier = 0, 4 do
@@ -957,32 +967,41 @@ end
 MOTIFS.stadium = function(ctx)
 	local future = ctx.theme.variant == "future"
 	ground(ctx, rgb(52, 120, 64), Enum.Material.Grass, -36)
-	-- Stands rising away from the stage, filled with a crowd of colored blocks.
-	for tier = 0, 5 do
-		local z = WALL_Z - 16 - tier * 8
-		local y = -30 + tier * 7
-		part(ctx.model, "Tier", Vector3.new(240, 7, 8), at(0, y, z), rgb(70, 74, 86), Enum.Material.Concrete)
-		for k = -22, 22 do
-			if (k + tier) % 3 ~= 0 then
-				part(
-					ctx.model,
-					"Fan",
-					Vector3.new(2.6, 3, 2),
-					at(k * 5.2 + (tier % 2) * 2, y + 5, z),
-					Color3.fromHSV(ctx.rng:NextNumber(), 0.5, 0.85),
-					Enum.Material.SmoothPlastic
-				)
-			end
-		end
+	-- Stands rising away from the stage, filled with a cheering crowd (torso + head, every third one bobbing).
+	local tiers = 7
+	for tier = 0, tiers - 1 do
+		local z = WALL_Z - 16 - tier * 7
+		local y = -30 + tier * 6.5
 		part(
 			ctx.model,
-			"TierTrim",
-			Vector3.new(240, 0.4, 0.4),
-			at(0, y + 3.6, z + 4),
-			if tier % 2 == 0 then ctx.trim else ctx.accent,
-			Enum.Material.Neon
+			"Tier",
+			Vector3.new(240, 6.5, 7),
+			at(0, y, z),
+			if future then rgb(30, 34, 48) else rgb(70, 74, 86),
+			Enum.Material.Concrete
 		)
+		if tier % 2 == 0 then
+			part(
+				ctx.model,
+				"TierTrim",
+				Vector3.new(240, 0.4, 0.4),
+				at(0, y + 3.3, z + 3.6),
+				if tier % 4 == 0 then ctx.trim else ctx.accent,
+				Enum.Material.Neon
+			)
+		end
 	end
+	local shirts = if future
+		then { ctx.trim, ctx.accent, rgb(120, 90, 255), rgb(255, 80, 200), rgb(40, 50, 80) }
+		else { ctx.trim, ctx.accent, rgb(230, 60, 60), rgb(60, 110, 220), rgb(240, 240, 240), rgb(40, 160, 90) }
+	Decor.crowd(ctx.model, CFrame.new(at(0, -30 + 3.25, WALL_Z - 16)), {
+		width = 170,
+		rows = tiers,
+		spacing = 4.6,
+		rise = Vector3.new(0, 6.5, -7),
+		colors = shirts,
+		seed = #ctx.name,
+	})
 	-- Floodlight towers.
 	for _, x in { -90, 90 } do
 		part(ctx.model, "Mast", Vector3.new(2, 90, 2), at(x, 15, WALL_Z - 50), rgb(160, 164, 172), Enum.Material.Metal)
@@ -1013,20 +1032,23 @@ MOTIFS.mountains = function(ctx)
 		local h = 70 + (k * 31 % 40)
 		local x = k * 34
 		local z = WALL_Z - 70 - (k % 2) * 25
+		local half = 30 + (k * 17 % 12)
+		-- Two wedges back to back, turned so the slopes face left and right: a triangle seen from the camera.
 		for side = 0, 1 do
+			local turn = CFrame.Angles(0, side * math.pi + math.pi / 2, 0)
 			wedge(
 				ctx.model,
 				"Peak",
-				Vector3.new(46, h, 23),
-				CFrame.new(at(x, -40 + h / 2, z)) * CFrame.Angles(0, side * math.pi, 0) * CFrame.new(0, 0, -11.5),
-				rgb(92, 100, 118),
+				Vector3.new(20, h, half),
+				CFrame.new(at(x, -40 + h / 2, z)) * turn * CFrame.new(0, 0, -half / 2),
+				if k % 2 == 0 then rgb(92, 100, 118) else rgb(74, 82, 102),
 				Enum.Material.Rock
 			)
 			wedge(
 				ctx.model,
 				"Snowcap",
-				Vector3.new(16, h * 0.32, 8),
-				CFrame.new(at(x, -40 + h * 0.84, z)) * CFrame.Angles(0, side * math.pi, 0) * CFrame.new(0, 0, -4),
+				Vector3.new(21, h * 0.34, half * 0.34),
+				CFrame.new(at(x, -40 + h * 0.83, z + 0.6)) * turn * CFrame.new(0, 0, -half * 0.17),
 				rgb(240, 246, 255),
 				Enum.Material.Snow
 			)
@@ -1035,17 +1057,26 @@ MOTIFS.mountains = function(ctx)
 	for k = -8, 8 do
 		pine(ctx, k * 16 + (k % 3) * 4, WALL_Z - 10 - (k % 4) * 9, 22 + (k * 7 % 10), true)
 	end
-	-- Aurora: tall translucent curtains in the sky.
-	for k = -6, 6 do
-		local curtain = part(
+	-- Aurora: a ribbon of narrow translucent strips along a slow wave, green below fading into violet above.
+	for k = -14, 14 do
+		local x = k * 7
+		local wave = math.sin(k * 0.35)
+		local y = 34 + wave * 8
+		local z = WALL_Z - 130 + math.cos(k * 0.3) * 18
+		-- Each strip leans with the wave's slope so neighbours join into one ribbon instead of steps.
+		local tilt = CFrame.Angles(0, wave * 0.35, math.atan(8 * 0.35 / 7 * math.cos(k * 0.35)))
+		local lower =
+			part(ctx.model, "Aurora", Vector3.new(7.6, 20, 0.2), CFrame.new(at(x, y, z)) * tilt, ctx.trim, Enum.Material.Neon)
+		lower.Transparency = 0.72
+		local upper = part(
 			ctx.model,
 			"Aurora",
-			Vector3.new(16, 40 + (k % 3) * 8, 0.2),
-			CFrame.new(at(k * 15, 70 + math.sin(k) * 6, WALL_Z - 120)) * CFrame.Angles(0, math.sin(k * 0.7) * 0.4, 0),
-			if k % 2 == 0 then ctx.trim else rgb(160, 110, 255),
+			Vector3.new(7.6, 16, 0.2),
+			CFrame.new(at(x, y + 18, z - 2)) * tilt,
+			rgb(160, 110, 255),
 			Enum.Material.Neon
 		)
-		curtain.Transparency = 0.75
+		upper.Transparency = 0.84
 	end
 end
 
@@ -1120,15 +1151,25 @@ MOTIFS.industrial = function(ctx)
 			)
 		end
 	end
-	sign(ctx, ctx.name, at(0, 22, WALL_Z - 28.5), ctx.trim, math.max(22, #ctx.name * 2))
+	sign(ctx, ctx.name, at(0, 22, WALL_Z - 24.5), ctx.trim, math.max(22, #ctx.name * 2))
 end
 
 MOTIFS.foundry = function(ctx)
 	local molten = ctx.theme.variant == "molten"
-	backWall(ctx, rgb(26, 18, 16), Enum.Material.Metal, WALL_Z - 40)
+	backWall(ctx, rgb(52, 28, 20), Enum.Material.Metal, WALL_Z - 40)
 	-- A lava lake below the stage lights everything from beneath.
-	local lava = ground(ctx, rgb(255, 96, 20), Enum.Material.Neon, -34)
-	lava.Transparency = 0.1
+	-- Cooled dark crust with glowing lava rivers running through it (a fully glowing floor washes the frame out).
+	ground(ctx, rgb(46, 30, 26), Enum.Material.Basalt, -34)
+	for k, z in { 26, -10, -60, -120 } do
+		part(
+			ctx.model,
+			"LavaRiver",
+			Vector3.new(420, 0.4, 10 + k * 3),
+			CFrame.new(at(0, -32.9, z)) * CFrame.Angles(0, (k - 2.5) * 0.05, 0),
+			if molten then rgb(255, 70, 20) else rgb(255, 110, 25),
+			Enum.Material.Neon
+		)
+	end
 	for _, x in { -60, 0, 60 } do
 		local glow = part(ctx.model, "LavaGlow", Vector3.one, at(x, -28, 0), rgb(255, 120, 40))
 		glow.Transparency = 1
@@ -1161,9 +1202,9 @@ MOTIFS.foundry = function(ctx)
 		part(
 			ctx.model,
 			"Pour",
-			Vector3.new(2.4, 60, 2.4),
+			Vector3.new(1.6, 60, 1.6),
 			at(x - 6, 0, WALL_Z - 10),
-			rgb(255, 140, 30),
+			rgb(240, 100, 20),
 			Enum.Material.Neon
 		)
 		for c = -1, 1, 2 do
@@ -1336,7 +1377,6 @@ end
 MOTIFS.war = function(ctx)
 	local ruins = ctx.theme.variant == "ruins"
 	ground(ctx, if ruins then rgb(70, 74, 72) else rgb(104, 92, 72), Enum.Material.Ground, -34)
-	backWall(ctx, if ruins then rgb(60, 66, 70) else rgb(120, 112, 104), nil, WALL_Z - 150)
 	if ruins then
 		-- Broken buildings with dark empty windows.
 		for k = -6, 6 do
@@ -1492,12 +1532,13 @@ local SKIES: { [string]: Sky } = {
 	dojo = { clock = 17.6, exposure = 0, haze = 0.3, density = 0.08 },
 	colosseum = { clock = 17.2, exposure = -0.15, haze = 1, density = 0.15 },
 	stadium = { clock = 17.8, exposure = 0, haze = 0.6, density = 0.1 },
-	mountains = { clock = 0, exposure = 0.6, haze = 0.4, density = 0.1 },
-	industrial = { clock = 0, exposure = 0.5, haze = 0.8, density = 0.2 },
-	foundry = { clock = 0, exposure = 0.3, haze = 1, density = 0.15 },
+	mountains = { clock = 0, exposure = 0.2, haze = 0.4, density = 0.08 },
+	industrial = { clock = 0, exposure = 0.4, haze = 0.8, density = 0.18 },
+	foundry = { clock = 0, exposure = 0, haze = 0.8, density = 0.12 },
 	space = { clock = 0, exposure = 0.5, haze = 0, density = 0 },
-	space_interior = { clock = 0, exposure = 0.5, haze = 0.2, density = 0.05 },
-	war = { clock = 15, exposure = 0, haze = 2, density = 0.3 },
+	space_interior = { clock = 0, exposure = 0.1, haze = 0.2, density = 0.04 },
+	-- Late afternoon: a low warm sun behind the smoke reads more dramatic than flat midday haze.
+	war = { clock = 17.4, exposure = -0.1, haze = 1.4, density = 0.22 },
 }
 
 local function tintColor(tint: { number }, scale: number): Color3
@@ -1522,7 +1563,9 @@ function ArenaBuilder.applyLighting(theme: ArenaThemes.Theme)
 	if theme.motif == "temple" and theme.variant == "jungle" then
 		sky = { clock = 15, exposure = 0.1, haze = 1.2, density = 0.18 }
 	elseif theme.variant == "future" then
-		sky = { clock = 0, exposure = 0.4, haze = 0.4, density = 0.08 }
+		sky = { clock = 0, exposure = 0, haze = 0.3, density = 0.05 }
+	elseif theme.variant == "frozen" then
+		sky = { clock = 0, exposure = 0, haze = 0.5, density = 0.12 }
 	end
 	local day = sky.clock > 6 and sky.clock < 18.2
 	Lighting.ClockTime = sky.clock
@@ -1586,8 +1629,20 @@ function ArenaBuilder.build(arenaId: string): Model
 	buildStage(ctx, arenaId, STYLES[theme.motif] or STYLES.city_street)
 	local motif = MOTIFS[theme.motif] or MOTIFS.city_street
 	motif(ctx)
+	ArenaDressing.dress({
+		model = model,
+		theme = theme,
+		trim = ctx.trim,
+		accent = ctx.accent,
+		name = ctx.name,
+		rng = ctx.rng,
+		baseY = BASE_Y,
+		wallZ = WALL_Z,
+	})
 	keyLights(ctx)
 	weather(ctx)
+	-- Cheap flags for everything: no touch/query/collision, shadows only for big solid parts.
+	Decor.finalize(model, { shadowCenter = Vector3.new(0, BASE_Y, 0), shadowRadius = 110 })
 	model.Parent = workspace
 	ArenaBuilder.applyLighting(theme)
 	return model
