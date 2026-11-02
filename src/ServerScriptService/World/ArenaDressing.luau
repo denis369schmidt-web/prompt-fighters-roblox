@@ -56,8 +56,14 @@ local function train(ctx: Ctx, y: number, z: number, color: Color3, windows: Col
 				Enum.Material.Metal
 			)
 		)
-		local w =
-			Decor.part(m, "TrainWindows", Vector3.new(12, 1.2, 0.2), Vector3.new(x, ctx.baseY + y + 0.6, z + 2.05), windows, Enum.Material.Neon)
+		local w = Decor.part(
+			m,
+			"TrainWindows",
+			Vector3.new(12, 1.2, 0.2),
+			Vector3.new(x, ctx.baseY + y + 0.6, z + 2.05),
+			windows,
+			Enum.Material.Neon
+		)
 		w.Transparency = 0.35
 		table.insert(parts, w)
 	end
@@ -74,8 +80,22 @@ local function train(ctx: Ctx, y: number, z: number, color: Color3, windows: Col
 	)
 	Decor.convoy(parts, speed, 520, phase)
 	-- The track: one long beam with a neon edge.
-	Decor.part(m, "TrainTrack", Vector3.new(520, 1.2, 3), Vector3.new(0, ctx.baseY + y - 2.6, z), rgb(24, 22, 34), Enum.Material.Metal)
-	Decor.part(m, "TrackGlow", Vector3.new(520, 0.25, 0.25), Vector3.new(0, ctx.baseY + y - 2.1, z + 1.6), ctx.trim, Enum.Material.Neon).Transparency =
+	Decor.part(
+		m,
+		"TrainTrack",
+		Vector3.new(520, 1.2, 3),
+		Vector3.new(0, ctx.baseY + y - 2.6, z),
+		rgb(24, 22, 34),
+		Enum.Material.Metal
+	)
+	Decor.part(
+		m,
+		"TrackGlow",
+		Vector3.new(520, 0.25, 0.25),
+		Vector3.new(0, ctx.baseY + y - 2.1, z + 1.6),
+		ctx.trim,
+		Enum.Material.Neon
+	).Transparency =
 		0.4
 end
 
@@ -84,7 +104,7 @@ local function blimp(ctx: Ctx, y: number, z: number, text: string, phase: number
 	local m = ctx.model
 	local c = Vector3.new(0, ctx.baseY + y, z)
 	local hullColor = rgb(200, 204, 216)
-	local parts = {
+	local parts: { BasePart } = {
 		Decor.part(
 			m,
 			"BlimpHull",
@@ -94,8 +114,24 @@ local function blimp(ctx: Ctx, y: number, z: number, text: string, phase: number
 			Enum.Material.SmoothPlastic,
 			Enum.PartType.Cylinder
 		),
-		Decor.part(m, "BlimpNose", Vector3.one * 11, c + Vector3.new(15, 0, 0), hullColor, Enum.Material.SmoothPlastic, Enum.PartType.Ball),
-		Decor.part(m, "BlimpTail", Vector3.one * 11, c - Vector3.new(15, 0, 0), hullColor, Enum.Material.SmoothPlastic, Enum.PartType.Ball),
+		Decor.part(
+			m,
+			"BlimpNose",
+			Vector3.one * 11,
+			c + Vector3.new(15, 0, 0),
+			hullColor,
+			Enum.Material.SmoothPlastic,
+			Enum.PartType.Ball
+		),
+		Decor.part(
+			m,
+			"BlimpTail",
+			Vector3.one * 11,
+			c - Vector3.new(15, 0, 0),
+			hullColor,
+			Enum.Material.SmoothPlastic,
+			Enum.PartType.Ball
+		),
 		Decor.wedge(
 			m,
 			"BlimpFin",
@@ -104,8 +140,14 @@ local function blimp(ctx: Ctx, y: number, z: number, text: string, phase: number
 			ctx.accent
 		),
 	}
-	local screen =
-		Decor.part(m, "BlimpScreen", Vector3.new(22, 5, 0.3), c + Vector3.new(0, -1, 5.7), rgb(10, 8, 20), Enum.Material.SmoothPlastic)
+	local screen = Decor.part(
+		m,
+		"BlimpScreen",
+		Vector3.new(22, 5, 0.3),
+		c + Vector3.new(0, -1, 5.7),
+		rgb(10, 8, 20),
+		Enum.Material.SmoothPlastic
+	)
 	Decor.text(screen, Enum.NormalId.Back, text, ctx.trim, 10)
 	table.insert(parts, screen)
 	Decor.convoy(parts, 7, 460, phase)
@@ -116,11 +158,26 @@ local function flyer(ctx: Ctx, y: number, z: number, color: Color3, light: Color
 	local m = ctx.model
 	local c = Vector3.new(0, ctx.baseY + y, z)
 	local dir = if speed > 0 then 1 else -1
-	local parts = {
+	local parts: { BasePart } = {
 		Decor.part(m, "FlyerBody", Vector3.new(9, 1.6, 1.6), c, color, Enum.Material.Metal),
 		Decor.part(m, "FlyerWing", Vector3.new(2.4, 0.3, 9), c, color, Enum.Material.Metal),
-		Decor.part(m, "FlyerTail", Vector3.new(1.4, 2.6, 0.3), c - Vector3.new(dir * 4, 1.2, 0), color, Enum.Material.Metal),
-		Decor.part(m, "FlyerLight", Vector3.one * 0.8, c + Vector3.new(dir * 4.8, 0, 0), light, Enum.Material.Neon, Enum.PartType.Ball),
+		Decor.part(
+			m,
+			"FlyerTail",
+			Vector3.new(1.4, 2.6, 0.3),
+			c - Vector3.new(dir * 4, 1.2, 0),
+			color,
+			Enum.Material.Metal
+		),
+		Decor.part(
+			m,
+			"FlyerLight",
+			Vector3.one * 0.8,
+			c + Vector3.new(dir * 4.8, 0, 0),
+			light,
+			Enum.Material.Neon,
+			Enum.PartType.Ball
+		),
 	}
 	Decor.convoy(parts, math.abs(speed), 480, phase, Vector3.new(dir, 0, 0))
 end
@@ -137,7 +194,9 @@ local function hills(ctx: Ctx, z: number, y: number, color: Color3, height: numb
 				ctx.model,
 				"Hill",
 				Vector3.new(6, h, w / 2),
-				CFrame.new(x, ctx.baseY + y + h / 2, z) * CFrame.Angles(0, side * math.pi + math.pi / 2, 0) * CFrame.new(0, 0, -w / 4),
+				CFrame.new(x, ctx.baseY + y + h / 2, z)
+					* CFrame.Angles(0, side * math.pi + math.pi / 2, 0)
+					* CFrame.new(0, 0, -w / 4),
 				color,
 				Enum.Material.SmoothPlastic
 			)
@@ -204,7 +263,14 @@ DRESS.city_roof = function(ctx)
 	blimp(ctx, 48, ctx.wallZ - 95, "PROMPT FIGHTERS", 20)
 	train(ctx, 38, ctx.wallZ - 70, rgb(36, 40, 56), ctx.accent:Lerp(rgb(255, 255, 255), 0.4), 52, 3)
 	for k, x in { -110, -30, 70, 140 } do
-		Decor.searchlight(m, Vector3.new(x, ctx.baseY - 60, ctx.wallZ - 160), 160, if k % 2 == 0 then ctx.trim else ctx.accent, (k % 2 - 0.5) * 0.5, k * 1.7)
+		Decor.searchlight(
+			m,
+			Vector3.new(x, ctx.baseY - 60, ctx.wallZ - 160),
+			160,
+			if k % 2 == 0 then ctx.trim else ctx.accent,
+			(k % 2 - 0.5) * 0.5,
+			k * 1.7
+		)
 	end
 	each(ctx, "Beacon", function(p)
 		Decor.pulse(p, 0.8, 1.2)
@@ -225,7 +291,7 @@ DRESS.scifi_city = function(ctx)
 				thruster = d
 			end
 		end
-		local parts = { p }
+		local parts: { BasePart } = { p }
 		if thruster then
 			table.insert(parts, thruster)
 		end
@@ -257,10 +323,24 @@ DRESS.temple = function(ctx)
 	if jungle then
 		hills(ctx, ctx.wallZ - 170, -45, rgb(70, 110, 84), 90, 4)
 		-- A waterfall down the far cliff.
-		local fall = Decor.part(m, "Waterfall", Vector3.new(6, 70, 1), Vector3.new(-70, ctx.baseY - 10, ctx.wallZ - 60), rgb(120, 190, 230), Enum.Material.Neon)
+		local fall = Decor.part(
+			m,
+			"Waterfall",
+			Vector3.new(6, 70, 1),
+			Vector3.new(-70, ctx.baseY - 10, ctx.wallZ - 60),
+			rgb(120, 190, 230),
+			Enum.Material.Neon
+		)
 		fall.Transparency = 0.55
 		Decor.pulse(fall, 0.2, 1.4)
-		Decor.part(m, "Cliff", Vector3.new(36, 80, 14), Vector3.new(-70, ctx.baseY - 4, ctx.wallZ - 68), rgb(80, 96, 78), Enum.Material.Rock)
+		Decor.part(
+			m,
+			"Cliff",
+			Vector3.new(36, 80, 14),
+			Vector3.new(-70, ctx.baseY - 4, ctx.wallZ - 68),
+			rgb(80, 96, 78),
+			Enum.Material.Rock
+		)
 	else
 		hills(ctx, ctx.wallZ - 100, -50, rgb(26, 28, 56), 70, 8)
 	end
@@ -279,6 +359,10 @@ DRESS.temple = function(ctx)
 	each(ctx, "Flame", function(p, i)
 		Decor.pulse(p, 0.3, 0.7 + (i % 3) * 0.2, i)
 	end)
+	-- A matte moon: as neon it blooms into a white blot that steals focus from the fight.
+	each(ctx, "Moon", function(p)
+		p.Material = Enum.Material.SmoothPlastic
+	end)
 end
 
 DRESS.dojo = function(ctx)
@@ -290,7 +374,14 @@ DRESS.dojo = function(ctx)
 	end)
 	-- Cherry trees in the garden outside, seen through the open hall ends.
 	for _, x in { -96, 96 } do
-		Decor.part(ctx.model, "CherryTrunk", Vector3.new(2, 26, 2), Vector3.new(x, ctx.baseY - 6, ctx.wallZ + 2), rgb(70, 44, 36), Enum.Material.Wood)
+		Decor.part(
+			ctx.model,
+			"CherryTrunk",
+			Vector3.new(2, 26, 2),
+			Vector3.new(x, ctx.baseY - 6, ctx.wallZ + 2),
+			rgb(70, 44, 36),
+			Enum.Material.Wood
+		)
 		for k = 0, 2 do
 			Decor.part(
 				ctx.model,
@@ -315,7 +406,14 @@ DRESS.colosseum = function(ctx)
 		local facing = CFrame.new(x, ctx.baseY - 30, z) * CFrame.Angles(0, -angle, 0)
 		-- A stepped stand (three ledges) with spectators on it.
 		for row = 0, 2 do
-			Decor.part(m, "Seats", Vector3.new(34, 3, 4), facing * CFrame.new(0, row * 3 + 1.5, -row * 4), rgb(150, 124, 92), Enum.Material.Sandstone)
+			Decor.part(
+				m,
+				"Seats",
+				Vector3.new(34, 3, 4),
+				facing * CFrame.new(0, row * 3 + 1.5, -row * 4),
+				rgb(150, 124, 92),
+				Enum.Material.Sandstone
+			)
 		end
 		Decor.crowd(m, facing * CFrame.new(0, 3, 0), {
 			width = 32,
@@ -340,13 +438,26 @@ DRESS.stadium = function(ctx)
 	local m = ctx.model
 	local future = ctx.theme.variant == "future"
 	for k = -3, 3 do
-		Decor.flag(m, Vector3.new(k * 32, ctx.baseY + 34, ctx.wallZ - 78), 12, if k % 2 == 0 then ctx.trim else ctx.accent, k)
+		Decor.flag(
+			m,
+			Vector3.new(k * 32, ctx.baseY + 34, ctx.wallZ - 78),
+			12,
+			if k % 2 == 0 then ctx.trim else ctx.accent,
+			k
+		)
 	end
 	each(ctx, "TierTrim", function(p, i)
 		Decor.pulse(p, 0.5, 1.6, i * 0.25)
 	end)
 	for k, x in { -140, -60, 60, 140 } do
-		Decor.searchlight(m, Vector3.new(x, ctx.baseY - 20, ctx.wallZ - 110), 150, if future then ctx.trim else rgb(255, 240, 200), (k % 2 - 0.5) * 0.6, k * 2)
+		Decor.searchlight(
+			m,
+			Vector3.new(x, ctx.baseY - 20, ctx.wallZ - 110),
+			150,
+			if future then ctx.trim else rgb(255, 240, 200),
+			(k % 2 - 0.5) * 0.6,
+			k * 2
+		)
 	end
 	if future then
 		blimp(ctx, 52, ctx.wallZ - 110, "CYBER-STADION", 10)
@@ -365,10 +476,24 @@ DRESS.mountains = function(ctx)
 	local m = ctx.model
 	local y, z = ctx.baseY + 30, ctx.wallZ - 60
 	Decor.part(m, "Cable", Vector3.new(400, 0.3, 0.3), Vector3.new(0, y + 4.5, z), rgb(30, 30, 40), Enum.Material.Metal)
-	local car = {
+	local car: { BasePart } = {
 		Decor.part(m, "CableCar", Vector3.new(6, 4, 4), Vector3.new(0, y, z), rgb(220, 60, 60), Enum.Material.Metal),
-		Decor.part(m, "CableCarWindow", Vector3.new(5, 1.2, 0.2), Vector3.new(0, y + 0.6, z + 2.05), rgb(255, 230, 170), Enum.Material.Neon),
-		Decor.part(m, "CableArm", Vector3.new(0.4, 2.6, 0.4), Vector3.new(0, y + 3.2, z), rgb(30, 30, 40), Enum.Material.Metal),
+		Decor.part(
+			m,
+			"CableCarWindow",
+			Vector3.new(5, 1.2, 0.2),
+			Vector3.new(0, y + 0.6, z + 2.05),
+			rgb(255, 230, 170),
+			Enum.Material.Neon
+		),
+		Decor.part(
+			m,
+			"CableArm",
+			Vector3.new(0.4, 2.6, 0.4),
+			Vector3.new(0, y + 3.2, z),
+			rgb(30, 30, 40),
+			Enum.Material.Metal
+		),
 	}
 	Decor.convoy(car, 9, 400, 0)
 end
@@ -383,9 +508,23 @@ DRESS.industrial = function(ctx)
 		local pane = Decor.part(m, "FactoryWindow", Vector3.new(18, 26, 0.3), c, glass, Enum.Material.Neon)
 		pane.Transparency = 0.6
 		for _, dx in { -3, 3 } do
-			Decor.part(m, "Mullion", Vector3.new(0.8, 26, 0.5), c + Vector3.new(dx, 0, 0.3), rgb(30, 30, 34), Enum.Material.Metal)
+			Decor.part(
+				m,
+				"Mullion",
+				Vector3.new(0.8, 26, 0.5),
+				c + Vector3.new(dx, 0, 0.3),
+				rgb(30, 30, 34),
+				Enum.Material.Metal
+			)
 		end
-		Decor.part(m, "Transom", Vector3.new(18, 0.8, 0.5), c + Vector3.new(0, 4, 0.3), rgb(30, 30, 34), Enum.Material.Metal)
+		Decor.part(
+			m,
+			"Transom",
+			Vector3.new(18, 0.8, 0.5),
+			c + Vector3.new(0, 4, 0.3),
+			rgb(30, 30, 34),
+			Enum.Material.Metal
+		)
 	end
 	-- Ceiling fans turning under the trusses.
 	for _, x in { -70, 70 } do
@@ -404,12 +543,33 @@ DRESS.industrial = function(ctx)
 	end
 	-- A crane trolley with a hook running along the front truss.
 	local y, z, x = ctx.baseY + 38, ctx.wallZ - 6, 64
-	Decor.part(m, "CraneRail", Vector3.new(300, 1.4, 1.4), Vector3.new(0, y + 2, z), rgb(200, 150, 40), Enum.Material.Metal)
-	local trolley = {
+	Decor.part(
+		m,
+		"CraneRail",
+		Vector3.new(300, 1.4, 1.4),
+		Vector3.new(0, y + 2, z),
+		rgb(200, 150, 40),
+		Enum.Material.Metal
+	)
+	local trolley: { BasePart } = {
 		Decor.part(m, "Trolley", Vector3.new(5, 2.4, 3), Vector3.new(x, y, z), rgb(210, 160, 40), Enum.Material.Metal),
-		Decor.part(m, "HookCable", Vector3.new(0.25, 14, 0.25), Vector3.new(x, y - 8, z), rgb(30, 30, 30), Enum.Material.Metal),
+		Decor.part(
+			m,
+			"HookCable",
+			Vector3.new(0.25, 14, 0.25),
+			Vector3.new(x, y - 8, z),
+			rgb(30, 30, 30),
+			Enum.Material.Metal
+		),
 		Decor.part(m, "Hook", Vector3.new(2, 2, 1), Vector3.new(x, y - 15.5, z), rgb(60, 60, 60), Enum.Material.Metal),
-		Decor.part(m, "TrolleyLight", Vector3.new(1, 0.6, 0.2), Vector3.new(x, y, z + 1.6), rgb(255, 140, 40), Enum.Material.Neon),
+		Decor.part(
+			m,
+			"TrolleyLight",
+			Vector3.new(1, 0.6, 0.2),
+			Vector3.new(x, y, z + 1.6),
+			rgb(255, 140, 40),
+			Enum.Material.Neon
+		),
 	}
 	Decor.convoy(trolley, 8, 220, 0)
 	each(ctx, "HangLamp", function(p, i)
@@ -424,22 +584,64 @@ DRESS.foundry = function(ctx)
 	for k = -1, 1 do
 		local c = Vector3.new(k * 56, ctx.baseY + 2, ctx.wallZ - 36)
 		Decor.part(m, "Furnace", Vector3.new(26, 34, 6), c, rgb(44, 34, 30), Enum.Material.Brick)
-		local mouth = Decor.part(m, "FurnaceMouth", Vector3.new(14, 10, 0.4), c + Vector3.new(0, -6, 3.1), ctx.trim, Enum.Material.Neon)
+		local mouth = Decor.part(
+			m,
+			"FurnaceMouth",
+			Vector3.new(14, 10, 0.4),
+			c + Vector3.new(0, -6, 3.1),
+			ctx.trim,
+			Enum.Material.Neon
+		)
 		Decor.pulse(mouth, 0.25, 1.1 + k * 0.2, k)
 		for b = -2, 2 do
-			Decor.part(m, "Grate", Vector3.new(0.7, 10, 0.4), c + Vector3.new(b * 2.8, -6, 3.5), steel, Enum.Material.Metal)
+			Decor.part(
+				m,
+				"Grate",
+				Vector3.new(0.7, 10, 0.4),
+				c + Vector3.new(b * 2.8, -6, 3.5),
+				steel,
+				Enum.Material.Metal
+			)
 		end
 		Decor.part(m, "FurnaceHood", Vector3.new(30, 3, 9), c + Vector3.new(0, 18, 1), steel, Enum.Material.Metal)
 	end
 	-- A catwalk with a warning-light edge across the hall.
-	Decor.part(m, "Catwalk", Vector3.new(240, 1, 4), Vector3.new(0, ctx.baseY + 24, ctx.wallZ - 20), steel, Enum.Material.DiamondPlate)
-	Decor.part(m, "CatwalkEdge", Vector3.new(240, 0.3, 0.3), Vector3.new(0, ctx.baseY + 24.6, ctx.wallZ - 18), ctx.accent, Enum.Material.Neon).Transparency =
+	Decor.part(
+		m,
+		"Catwalk",
+		Vector3.new(240, 1, 4),
+		Vector3.new(0, ctx.baseY + 24, ctx.wallZ - 20),
+		steel,
+		Enum.Material.DiamondPlate
+	)
+	Decor.part(
+		m,
+		"CatwalkEdge",
+		Vector3.new(240, 0.3, 0.3),
+		Vector3.new(0, ctx.baseY + 24.6, ctx.wallZ - 18),
+		ctx.accent,
+		Enum.Material.Neon
+	).Transparency =
 		0.3
 	-- Dark girders in front of the glow frame the stage and give the heat a silhouette.
 	for _, x in { -84, -52, 52, 84 } do
-		Decor.part(m, "Girder", Vector3.new(3, 110, 3), Vector3.new(x, ctx.baseY + 5, ctx.wallZ - 14), steel, Enum.Material.Metal)
+		Decor.part(
+			m,
+			"Girder",
+			Vector3.new(3, 110, 3),
+			Vector3.new(x, ctx.baseY + 5, ctx.wallZ - 14),
+			steel,
+			Enum.Material.Metal
+		)
 	end
-	Decor.part(m, "GirderBeam", Vector3.new(220, 3, 3), Vector3.new(0, ctx.baseY + 42, ctx.wallZ - 14), steel, Enum.Material.Metal)
+	Decor.part(
+		m,
+		"GirderBeam",
+		Vector3.new(220, 3, 3),
+		Vector3.new(0, ctx.baseY + 42, ctx.wallZ - 14),
+		steel,
+		Enum.Material.Metal
+	)
 	for k = -5, 5 do
 		Decor.part(
 			m,
@@ -452,12 +654,26 @@ DRESS.foundry = function(ctx)
 	end
 	-- A conveyor of glowing ingots far below.
 	local y, z = ctx.baseY - 16, ctx.wallZ - 26
-	Decor.part(m, "Conveyor", Vector3.new(300, 1.5, 6), Vector3.new(0, y - 1.2, z), rgb(40, 34, 32), Enum.Material.DiamondPlate)
+	Decor.part(
+		m,
+		"Conveyor",
+		Vector3.new(300, 1.5, 6),
+		Vector3.new(0, y - 1.2, z),
+		rgb(40, 34, 32),
+		Enum.Material.DiamondPlate
+	)
 	local ingots: { BasePart } = {}
 	for k = 0, 5 do
 		table.insert(
 			ingots,
-			Decor.part(m, "Ingot", Vector3.new(4, 1.6, 3), Vector3.new(-150 + k * 50, y, z), ctx.accent, Enum.Material.Neon)
+			Decor.part(
+				m,
+				"Ingot",
+				Vector3.new(4, 1.6, 3),
+				Vector3.new(-150 + k * 50, y, z),
+				ctx.accent,
+				Enum.Material.Neon
+			)
 		)
 	end
 	Decor.convoy(ingots, 10, 300, 0)
@@ -543,8 +759,13 @@ DRESS.war = function(ctx)
 			end
 		end)
 		-- A broken neon sign that still flickers.
-		local board =
-			Decor.part(m, "BrokenSign", Vector3.new(18, 5, 0.4), CFrame.new(-26, ctx.baseY + 12, ctx.wallZ - 22) * CFrame.Angles(0, 0, 0.12), rgb(10, 12, 14))
+		local board = Decor.part(
+			m,
+			"BrokenSign",
+			Vector3.new(18, 5, 0.4),
+			CFrame.new(-26, ctx.baseY + 12, ctx.wallZ - 22) * CFrame.Angles(0, 0, 0.12),
+			rgb(10, 12, 14)
+		)
 		Decor.text(board, Enum.NormalId.Back, "HOTEL", ctx.trim, 10)
 		local frame = Decor.part(
 			m,
@@ -558,11 +779,33 @@ DRESS.war = function(ctx)
 		-- A helicopter crossing with its searchlight.
 		local y, z = 46, ctx.wallZ - 70
 		local c = Vector3.new(0, ctx.baseY + y, z)
-		local heli = {
+		local heli: { BasePart } = {
 			Decor.part(m, "HeliBody", Vector3.new(8, 3.4, 3.4), c, rgb(40, 46, 44), Enum.Material.Metal),
-			Decor.part(m, "HeliTail", Vector3.new(8, 0.8, 0.8), c - Vector3.new(7.5, -0.6, 0), rgb(40, 46, 44), Enum.Material.Metal),
-			Decor.part(m, "HeliRotor", Vector3.new(16, 0.2, 0.8), c + Vector3.new(0, 2.1, 0), rgb(20, 20, 20), Enum.Material.Metal),
-			Decor.part(m, "HeliLight", Vector3.one * 0.8, c + Vector3.new(4.2, -1, 0), rgb(255, 60, 60), Enum.Material.Neon, Enum.PartType.Ball),
+			Decor.part(
+				m,
+				"HeliTail",
+				Vector3.new(8, 0.8, 0.8),
+				c - Vector3.new(7.5, -0.6, 0),
+				rgb(40, 46, 44),
+				Enum.Material.Metal
+			),
+			Decor.part(
+				m,
+				"HeliRotor",
+				Vector3.new(16, 0.2, 0.8),
+				c + Vector3.new(0, 2.1, 0),
+				rgb(20, 20, 20),
+				Enum.Material.Metal
+			),
+			Decor.part(
+				m,
+				"HeliLight",
+				Vector3.one * 0.8,
+				c + Vector3.new(4.2, -1, 0),
+				rgb(255, 60, 60),
+				Enum.Material.Neon,
+				Enum.PartType.Ball
+			),
 		}
 		local beam = Decor.part(
 			m,
@@ -582,17 +825,52 @@ DRESS.war = function(ctx)
 		local tank = CFrame.new(-60, ctx.baseY - 31, ctx.wallZ - 40) * CFrame.Angles(0, 0.3, 0.06)
 		local olive = rgb(70, 74, 52)
 		Decor.part(m, "TankHull", Vector3.new(16, 4, 9), tank, olive, Enum.Material.Metal)
-		Decor.part(m, "TankTracks", Vector3.new(17, 2.4, 10), tank * CFrame.new(0, -2.4, 0), rgb(40, 38, 34), Enum.Material.Metal)
+		Decor.part(
+			m,
+			"TankTracks",
+			Vector3.new(17, 2.4, 10),
+			tank * CFrame.new(0, -2.4, 0),
+			rgb(40, 38, 34),
+			Enum.Material.Metal
+		)
 		Decor.part(m, "TankTurret", Vector3.new(7, 3, 6), tank * CFrame.new(-1, 3.4, 0), olive, Enum.Material.Metal)
-		Decor.part(m, "TankBarrel", Vector3.new(12, 0.9, 0.9), tank * CFrame.new(8, 3.6, 0) * CFrame.Angles(0, 0, -0.2), olive, Enum.Material.Metal)
+		Decor.part(
+			m,
+			"TankBarrel",
+			Vector3.new(12, 0.9, 0.9),
+			tank * CFrame.new(8, 3.6, 0) * CFrame.Angles(0, 0, -0.2),
+			olive,
+			Enum.Material.Metal
+		)
 		local tower = Vector3.new(66, ctx.baseY - 34, ctx.wallZ - 46)
 		for _, dx in { -3, 3 } do
 			for _, dz in { -3, 3 } do
-				Decor.part(m, "TowerLeg", Vector3.new(0.8, 26, 0.8), tower + Vector3.new(dx, 13, dz), rgb(70, 54, 40), Enum.Material.Wood)
+				Decor.part(
+					m,
+					"TowerLeg",
+					Vector3.new(0.8, 26, 0.8),
+					tower + Vector3.new(dx, 13, dz),
+					rgb(70, 54, 40),
+					Enum.Material.Wood
+				)
 			end
 		end
-		Decor.part(m, "TowerHut", Vector3.new(9, 6, 9), tower + Vector3.new(0, 29, 0), rgb(96, 80, 60), Enum.Material.WoodPlanks)
-		Decor.part(m, "TowerRoof", Vector3.new(11, 1, 11), tower + Vector3.new(0, 32.5, 0), rgb(60, 50, 40), Enum.Material.Wood)
+		Decor.part(
+			m,
+			"TowerHut",
+			Vector3.new(9, 6, 9),
+			tower + Vector3.new(0, 29, 0),
+			rgb(96, 80, 60),
+			Enum.Material.WoodPlanks
+		)
+		Decor.part(
+			m,
+			"TowerRoof",
+			Vector3.new(11, 1, 11),
+			tower + Vector3.new(0, 32.5, 0),
+			rgb(60, 50, 40),
+			Enum.Material.Wood
+		)
 		Decor.flag(m, Vector3.new(-30, ctx.baseY - 12, ctx.wallZ + 1), 12, rgb(170, 60, 40), 0)
 		Decor.flag(m, Vector3.new(42, ctx.baseY - 12, ctx.wallZ + 1), 12, rgb(70, 90, 120), 2)
 		flyer(ctx, 50, ctx.wallZ - 110, rgb(70, 74, 64), rgb(255, 200, 120), 26, 0)

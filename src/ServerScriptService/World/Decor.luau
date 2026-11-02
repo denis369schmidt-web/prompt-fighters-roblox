@@ -104,7 +104,7 @@ function Decor.text(
 		g.Parent = board
 		gui = g
 	end
-	local b = box or { 0, 0, 1, 1 }
+	local b: { number } = box or { 0, 0, 1, 1 }
 	local label = Instance.new("TextLabel")
 	label.Position = UDim2.fromScale(b[1], b[2])
 	label.Size = UDim2.fromScale(b[3], b[4])
@@ -319,11 +319,13 @@ function Decor.flag(parent: Instance, foot: Vector3, height: number, color: Colo
 		color,
 		Enum.Material.Fabric
 	)
-	return Decor.tag(
-		cloth,
-		"sway",
-		{ amp = 0.28, period = 1.6, axis = Vector3.new(0, 1, 0), pivot = foot + Vector3.new(0, height, 0), phase = phase }
-	)
+	return Decor.tag(cloth, "sway", {
+		amp = 0.28,
+		period = 1.6,
+		axis = Vector3.new(0, 1, 0),
+		pivot = foot + Vector3.new(0, height, 0),
+		phase = phase,
+	})
 end
 
 -- A searchlight beam sweeping from `foot`: a long translucent neon bar tilted `tilt` radians off vertical.
@@ -344,11 +346,7 @@ function Decor.searchlight(
 		Enum.Material.Neon
 	)
 	beam.Transparency = 0.84
-	return Decor.tag(
-		beam,
-		"sway",
-		{ amp = 0.35, period = 7, axis = Vector3.new(0, 0, 1), pivot = foot, phase = phase }
-	)
+	return Decor.tag(beam, "sway", { amp = 0.35, period = 7, axis = Vector3.new(0, 0, 1), pivot = foot, phase = phase })
 end
 
 -- Makes a group of parts travel together along `axis`, looping over `span` studs.

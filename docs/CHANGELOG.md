@@ -163,3 +163,13 @@
 
 - `export-scene.luau scene`: Arena mit frei platzierten, posierten Kämpfern für Key-Art.
 - `scripts/preview/compose-art.mjs`: Thumbnails (Type Any Fighter, 999%, 16 Fighters), Icon, TikTok-Cover und Quadrat-Post aus Renders plus Text.
+
+## 2026-11-02: Lobby und Arenen schöner, Statuen günstiger
+
+- Lobby neu aufgebaut (180×180): zentrale Showcase-Bühne mit drehendem Kämpfer in voller Detailstufe (`LobbyBuilder.setFeatured`), Tor „ARENA-WAHL“, Lichtsäulen über den drei Abstimmungsfeldern, leuchtende Chevron-Wege von Spawn zu allen Bereichen (farbcodiert), Bodenschrift, Wegweiser.
+- Bestenliste (`LobbyBuilder.setLeaderboard(rows, title?)`), Prompt-Terminal-Platz (Anker-Part `PromptTerminal` mit `PromptAttachment`, `LobbyBuilder.terminalCFrame()`), Trainingspuppen, Lounge mit Brunnen, Fahnen, Skyline rund um den Platz.
+- Statuen: reduzierte Detailstufe (keine Gesichtsdetails außer Augen, keine Kleinteile, keine Knochen). Lobby 1996 → 1330 Parts, Schatten-Parts 1827 → 148.
+- Arenen: Parallax-Ebenen (Skylines, Hügel), Publikum in Stadien und Kolosseum, Berge als echte Dreiecke, Polarlicht als Band, Fabrikfenster, Hochöfen, Lavaflüsse statt Neonboden, Abendlicht im Kriegsgebiet, weniger Überblendung (Cyber-Stadion, Hangar, Eiswerk, Gießerei).
+- Bewegte Deko (Züge, Blimp, Flugzeuge, Helikopter, Seilbahn, Kranhaken, Ventilatoren, Station, Fahnen, Laternen, Suchscheinwerfer, pulsierendes Neon) über `Shared/Visual/DecorMotion` + `DecorAnimator.client` (nur Client, BulkMoveTo, 30 Hz, nur in Kameranähe).
+- Alle Deko verankert, ohne Kollision/Touch/Query; Schatten nur für große Parts nahe der Kamera (`World/Decor.finalize`).
+- `scripts/part-budget.luau`, `shots.sh` mit Kontaktbogen und Lobby-Draufsicht; Renderer kann Text auf der Oberseite.

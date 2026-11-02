@@ -22,19 +22,25 @@ local function register(scene: Scene, d: Instance)
 	if not d:IsA("BasePart") then
 		return
 	end
-	local motion = DecorMotion.read(d)
+	local p = d :: BasePart
+	local motion = DecorMotion.read(p)
 	if motion == nil then
 		return
 	end
-	if motion.kind == "pulse" then
-		table.insert(scene.pulsers, { part = d, base = d.Transparency, motion = motion })
+	local m = motion :: DecorMotion.Motion
+	if m.kind == "pulse" then
+		table.insert(scene.pulsers, { part = p, base = p.Transparency, motion = m })
 	else
-		table.insert(scene.movers, { part = d, base = d.CFrame, motion = motion })
+		table.insert(scene.movers, { part = p, base = p.CFrame, motion = m })
 	end
 end
 
-local function track(model: Instance)
-	if not model:IsA("Model") or not SCENES[model.Name] or scenes[model] then
+local function track(child: Instance)
+	if not child:IsA("Model") or not SCENES[child.Name] then
+		return
+	end
+	local model = child :: Model
+	if scenes[model] then
 		return
 	end
 	local anchor = model:FindFirstChild("Floor") or model:FindFirstChild("Stage")
@@ -62,7 +68,7 @@ end
 workspace.ChildAdded:Connect(track)
 workspace.ChildRemoved:Connect(function(child)
 	if child:IsA("Model") then
-		scenes[child] = nil
+		scenes[child :: Model] = nil
 	end
 end)
 

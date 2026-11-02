@@ -193,7 +193,9 @@ local function pine(ctx: Ctx, x: number, z: number, height: number, snowy: boole
 				ctx.model,
 				"Needles",
 				Vector3.new(w * 2, height * 0.22, w),
-				CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, side * math.pi + math.pi / 2, 0) * CFrame.new(0, 0, -w / 2),
+				CFrame.new(base + Vector3.new(0, y, 0))
+					* CFrame.Angles(0, side * math.pi + math.pi / 2, 0)
+					* CFrame.new(0, 0, -w / 2),
 				if snowy and k == 3 then rgb(235, 242, 250) else rgb(36, 74, 58),
 				Enum.Material.Grass
 			)
@@ -1065,8 +1067,14 @@ MOTIFS.mountains = function(ctx)
 		local z = WALL_Z - 130 + math.cos(k * 0.3) * 18
 		-- Each strip leans with the wave's slope so neighbours join into one ribbon instead of steps.
 		local tilt = CFrame.Angles(0, wave * 0.35, math.atan(8 * 0.35 / 7 * math.cos(k * 0.35)))
-		local lower =
-			part(ctx.model, "Aurora", Vector3.new(7.6, 20, 0.2), CFrame.new(at(x, y, z)) * tilt, ctx.trim, Enum.Material.Neon)
+		local lower = part(
+			ctx.model,
+			"Aurora",
+			Vector3.new(7.6, 20, 0.2),
+			CFrame.new(at(x, y, z)) * tilt,
+			ctx.trim,
+			Enum.Material.Neon
+		)
 		lower.Transparency = 0.72
 		local upper = part(
 			ctx.model,
@@ -1151,7 +1159,7 @@ MOTIFS.industrial = function(ctx)
 			)
 		end
 	end
-	sign(ctx, ctx.name, at(0, 22, WALL_Z - 24.5), ctx.trim, math.max(22, #ctx.name * 2))
+	sign(ctx, ctx.name, at(0, 28, WALL_Z - 24.5), ctx.trim, math.max(22, #ctx.name * 2))
 end
 
 MOTIFS.foundry = function(ctx)

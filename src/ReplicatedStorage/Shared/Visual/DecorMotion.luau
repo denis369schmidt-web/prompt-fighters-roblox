@@ -70,9 +70,12 @@ function DecorMotion.read(part: Instance): Motion?
 	end
 	local axis = part:GetAttribute("AnimAxis")
 	local pivot = part:GetAttribute("AnimPivot")
-	local defaultAxis = if kind == "pass" then Vector3.new(1, 0, 0) elseif kind == "sway" then Vector3.new(0, 0, 1) else Vector3.new(0, 1, 0)
+	local defaultAxis = if kind == "pass"
+		then Vector3.new(1, 0, 0)
+		elseif kind == "sway" then Vector3.new(0, 0, 1)
+		else Vector3.new(0, 1, 0)
 	return {
-		kind = kind,
+		kind = kind :: string,
 		speed = (part:GetAttribute("AnimSpeed") :: number?) or 1,
 		amp = (part:GetAttribute("AnimAmp") :: number?) or 1,
 		period = math.max((part:GetAttribute("AnimPeriod") :: number?) or 4, 0.05),

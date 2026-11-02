@@ -125,7 +125,14 @@ local function disc(
 end
 
 -- A board with a neon frame behind it, facing `toward` (text on its Front face).
-local function board(parent: Instance, name: string, size: Vector3, center: Vector3, toward: Vector3, frame: Color3): (Part, Part)
+local function board(
+	parent: Instance,
+	name: string,
+	size: Vector3,
+	center: Vector3,
+	toward: Vector3,
+	frame: Color3
+): (Part, Part)
 	local look = facing(center, toward)
 	local b = part(parent, name, size, look, INK)
 	local f = part(
@@ -149,8 +156,7 @@ local function frozenFighter(fighterId: string, base: Vector3, look: Vector3, sc
 	local rig = RigBuilder.build(fighterId)
 	local root = rig.PrimaryPart :: BasePart
 	local stand = rig:GetAttribute("StandHeight") :: number
-	local target =
-		facing(base + Vector3.new(0, stand * scale, 0), base + Vector3.new(look.X, 0, look.Z))
+	local target = facing(base + Vector3.new(0, stand * scale, 0), base + Vector3.new(look.X, 0, look.Z))
 	local rootCFrame = root.CFrame
 	local out = Instance.new("Model")
 	out.Name = fighterId
@@ -183,8 +189,23 @@ end
 
 local function statue(parent: Instance, fighterId: string, position: Vector3, look: Vector3, lit: boolean)
 	local glow = Color3.fromHex(Looks.get(fighterId).glow)
-	part(parent, "Pedestal", Vector3.new(8, 3, 8), position + Vector3.new(0, 1.5, 0), Color3.fromRGB(30, 26, 48), Enum.Material.Marble, true)
-	local rim = part(parent, "PedestalGlow", Vector3.new(8.3, 0.4, 8.3), position + Vector3.new(0, 2.5, 0), glow, Enum.Material.Neon)
+	part(
+		parent,
+		"Pedestal",
+		Vector3.new(8, 3, 8),
+		position + Vector3.new(0, 1.5, 0),
+		Color3.fromRGB(30, 26, 48),
+		Enum.Material.Marble,
+		true
+	)
+	local rim = part(
+		parent,
+		"PedestalGlow",
+		Vector3.new(8.3, 0.4, 8.3),
+		position + Vector3.new(0, 2.5, 0),
+		glow,
+		Enum.Material.Neon
+	)
 	if lit then
 		Decor.light(rim, glow, 16, 1.2)
 	end
@@ -192,13 +213,7 @@ local function statue(parent: Instance, fighterId: string, position: Vector3, lo
 	figure.Name = "Statue_" .. fighterId
 	figure.Parent = parent
 	local plateCenter = position + Vector3.new(0, 1.5, 0) + look.Unit * 4.25
-	local plate = part(
-		parent,
-		"NamePlate",
-		Vector3.new(7.6, 1.6, 0.4),
-		facing(plateCenter, plateCenter + look),
-		INK
-	)
+	local plate = part(parent, "NamePlate", Vector3.new(7.6, 1.6, 0.4), facing(plateCenter, plateCenter + look), INK)
 	Decor.text(plate, Enum.NormalId.Front, Fighters.get(fighterId).name, glow, 20)
 end
 
@@ -321,11 +336,26 @@ local function buildFloor(m: Model)
 			seam.Transparency = 0.75
 		end
 	end
-	part(m, "VoteZone", Vector3.new(128, 0.06, 34), at(0, 0.03, PAD_Z + 2), Color3.fromRGB(46, 36, 30), Enum.Material.Slate)
+	part(
+		m,
+		"VoteZone",
+		Vector3.new(128, 0.06, 34),
+		at(0, 0.03, PAD_Z + 2),
+		Color3.fromRGB(46, 36, 30),
+		Enum.Material.Slate
+	)
 	disc(m, "Hub", SHOWCASE_RADIUS + 9, 0.06, at(0, 0.03, SHOWCASE_Z), Color3.fromRGB(36, 28, 62), Enum.Material.Slate)
-	local hubRing = disc(m, "HubRing", SHOWCASE_RADIUS + 9.6, 0.05, at(0, 0.02, SHOWCASE_Z), MAGENTA, Enum.Material.Neon)
+	local hubRing =
+		disc(m, "HubRing", SHOWCASE_RADIUS + 9.6, 0.05, at(0, 0.02, SHOWCASE_Z), MAGENTA, Enum.Material.Neon)
 	hubRing.Transparency = 0.4
-	part(m, "TrainingZone", Vector3.new(36, 0.06, 28), at(56, 0.03, 66), Color3.fromRGB(26, 46, 40), Enum.Material.Slate)
+	part(
+		m,
+		"TrainingZone",
+		Vector3.new(36, 0.06, 28),
+		at(56, 0.03, 66),
+		Color3.fromRGB(26, 46, 40),
+		Enum.Material.Slate
+	)
 end
 
 local function buildWalls(m: Model)
@@ -405,7 +435,16 @@ local function buildVoteArea(m: Model)
 	for k = 1, LobbyBuilder.PAD_COUNT do
 		local x = (k - 2) * PAD_SPACING
 		local center = at(x, 0.3, PAD_Z)
-		local padPart = disc(m, "VotePad" .. k, LobbyBuilder.PAD_RADIUS, 0.6, center, Color3.fromRGB(40, 34, 70), Enum.Material.Glass, true)
+		local padPart = disc(
+			m,
+			"VotePad" .. k,
+			LobbyBuilder.PAD_RADIUS,
+			0.6,
+			center,
+			Color3.fromRGB(40, 34, 70),
+			Enum.Material.Glass,
+			true
+		)
 		local padRing = disc(
 			m,
 			"VoteRing" .. k,
@@ -421,7 +460,8 @@ local function buildVoteArea(m: Model)
 		beacon.Transparency = 0.6
 		Decor.pulse(beacon, 0.3, 2.4, k)
 		local signCenter = center + Vector3.new(0, 13, -LobbyBuilder.PAD_RADIUS - 2)
-		local sign, frame = board(m, "VoteSign" .. k, Vector3.new(22, 8, 0.5), signCenter, signCenter + Vector3.new(0, 0, 10), CYAN)
+		local sign, frame =
+			board(m, "VoteSign" .. k, Vector3.new(22, 8, 0.5), signCenter, signCenter + Vector3.new(0, 0, 10), CYAN)
 		for _, side in { -1, 1 } do
 			part(
 				m,
@@ -435,26 +475,78 @@ local function buildVoteArea(m: Model)
 		end
 		local nameLabel = Decor.text(sign, Enum.NormalId.Front, "", WHITE, 14, { 0.02, 0.05, 0.96, 0.55 })
 		local votesLabel = Decor.text(sign, Enum.NormalId.Front, "", GOLD, 14, { 0.05, 0.63, 0.9, 0.32 })
-		pads[k] = { part = padPart, ring = padRing, beacon = beacon, frame = frame, name = nameLabel, votes = votesLabel }
+		pads[k] =
+			{ part = padPart, ring = padRing, beacon = beacon, frame = frame, name = nameLabel, votes = votesLabel }
 	end
 end
 
 local function buildShowcase(m: Model)
 	local center = at(0, 0, SHOWCASE_Z)
-	disc(m, "ShowcaseDais", SHOWCASE_RADIUS, 1.2, center + Vector3.new(0, 0.6, 0), Color3.fromRGB(30, 26, 48), Enum.Material.Marble, true)
-	disc(m, "ShowcaseStep", SHOWCASE_RADIUS + 1.6, 0.6, center + Vector3.new(0, 0.3, 0), STEEL, Enum.Material.Metal, true)
-	local rim = disc(m, "ShowcaseRim", SHOWCASE_RADIUS + 0.3, 0.3, center + Vector3.new(0, 0.95, 0), GOLD, Enum.Material.Neon)
+	disc(
+		m,
+		"ShowcaseDais",
+		SHOWCASE_RADIUS,
+		1.2,
+		center + Vector3.new(0, 0.6, 0),
+		Color3.fromRGB(30, 26, 48),
+		Enum.Material.Marble,
+		true
+	)
+	disc(
+		m,
+		"ShowcaseStep",
+		SHOWCASE_RADIUS + 1.6,
+		0.6,
+		center + Vector3.new(0, 0.3, 0),
+		STEEL,
+		Enum.Material.Metal,
+		true
+	)
+	local rim =
+		disc(m, "ShowcaseRim", SHOWCASE_RADIUS + 0.3, 0.3, center + Vector3.new(0, 0.95, 0), GOLD, Enum.Material.Neon)
 	Decor.pulse(rim, 0.3, 2)
-	local table_ = disc(m, "Turntable", 6.5, 1.4, center + Vector3.new(0, 1.9, 0), Color3.fromRGB(18, 16, 30), Enum.Material.Metal, true)
-	local stripe = part(m, "TurntableStripe", Vector3.new(12.6, 0.1, 0.6), center + Vector3.new(0, 2.62, 0), CYAN, Enum.Material.Neon)
+	local table_ = disc(
+		m,
+		"Turntable",
+		6.5,
+		1.4,
+		center + Vector3.new(0, 1.9, 0),
+		Color3.fromRGB(18, 16, 30),
+		Enum.Material.Metal,
+		true
+	)
+	local stripe = part(
+		m,
+		"TurntableStripe",
+		Vector3.new(12.6, 0.1, 0.6),
+		center + Vector3.new(0, 2.62, 0),
+		CYAN,
+		Enum.Material.Neon
+	)
 	Decor.tag(stripe, "spin", { speed = 0.45, pivot = center })
 	Decor.light(table_, Color3.fromRGB(255, 230, 200), 26, 2)
 	-- Four light pillars and a halo ring hovering above the fighter.
 	for k = 0, 3 do
 		local angle = k * math.pi / 2 + math.pi / 4
-		local foot = center + Vector3.new(math.cos(angle) * (SHOWCASE_RADIUS + 3), 0, math.sin(angle) * (SHOWCASE_RADIUS + 3))
-		part(m, "ShowcasePillar", Vector3.new(0.9, 9, 0.9), foot + Vector3.new(0, 4.5, 0), STEEL, Enum.Material.Metal, true)
-		local cap = part(m, "ShowcasePillarGlow", Vector3.new(1.3, 1, 1.3), foot + Vector3.new(0, 9.5, 0), MAGENTA, Enum.Material.Neon)
+		local foot = center
+			+ Vector3.new(math.cos(angle) * (SHOWCASE_RADIUS + 3), 0, math.sin(angle) * (SHOWCASE_RADIUS + 3))
+		part(
+			m,
+			"ShowcasePillar",
+			Vector3.new(0.9, 9, 0.9),
+			foot + Vector3.new(0, 4.5, 0),
+			STEEL,
+			Enum.Material.Metal,
+			true
+		)
+		local cap = part(
+			m,
+			"ShowcasePillarGlow",
+			Vector3.new(1.3, 1, 1.3),
+			foot + Vector3.new(0, 9.5, 0),
+			MAGENTA,
+			Enum.Material.Neon
+		)
 		Decor.pulse(cap, 0.5, 1.8, k * 0.45)
 	end
 	local haloCenter = center + Vector3.new(0, 18, 0)
@@ -474,7 +566,8 @@ local function buildShowcase(m: Model)
 	local signCenter = center + Vector3.new(0, 22, 0)
 	for _, dir in { 1, -1 } do
 		local face = signCenter + Vector3.new(0, 0, dir * 0.35)
-		local sign = part(m, "ShowcaseSign", Vector3.new(22, 5.5, 0.3), facing(face, face + Vector3.new(0, 0, dir)), INK)
+		local sign =
+			part(m, "ShowcaseSign", Vector3.new(22, 5.5, 0.3), facing(face, face + Vector3.new(0, 0, dir)), INK)
 		Decor.text(sign, Enum.NormalId.Front, "IM RAMPENLICHT", GOLD, 10, { 0.05, 0.04, 0.9, 0.36 })
 		local label = Decor.text(sign, Enum.NormalId.Front, "", WHITE, 10, { 0.03, 0.42, 0.94, 0.54 })
 		if dir == 1 then
@@ -514,7 +607,10 @@ local function buildLeaderboard(m: Model)
 	local rowHeight = 0.8 / rows
 	for i = 1, rows do
 		local y = 0.18 + (i - 1) * rowHeight
-		local color = if i == 1 then GOLD elseif i <= 3 then Color3.fromRGB(220, 226, 240) else Color3.fromRGB(170, 176, 200)
+		local color = if i == 1
+			then GOLD
+			elseif i <= 3 then Color3.fromRGB(220, 226, 240)
+			else Color3.fromRGB(170, 176, 200)
 		boardRows[i] = {
 			rank = Decor.text(b, Enum.NormalId.Front, `{i}.`, color, 12, { 0.04, y, 0.1, rowHeight * 0.8 }),
 			name = Decor.text(b, Enum.NormalId.Front, "—", color, 12, { 0.16, y, 0.56, rowHeight * 0.8 }),
@@ -526,9 +622,18 @@ local function buildLeaderboard(m: Model)
 	local look = facing(center, toward)
 	for _, side in { -1, 1 } do
 		local foot = (look * CFrame.new(side * 10, 0, 0.6)).Position
-		part(m, "LeaderboardLeg", Vector3.new(1.2, 12, 1.2), Vector3.new(foot.X, ORIGIN.Y + 6, foot.Z), STEEL, Enum.Material.Metal, true)
+		part(
+			m,
+			"LeaderboardLeg",
+			Vector3.new(1.2, 12, 1.2),
+			Vector3.new(foot.X, ORIGIN.Y + 6, foot.Z),
+			STEEL,
+			Enum.Material.Metal,
+			true
+		)
 	end
-	local crown = part(m, "LeaderboardCrown", Vector3.new(4, 2, 0.4), look * CFrame.new(0, 10.6, 0), GOLD, Enum.Material.Neon)
+	local crown =
+		part(m, "LeaderboardCrown", Vector3.new(4, 2, 0.4), look * CFrame.new(0, 10.6, 0), GOLD, Enum.Material.Neon)
 	Decor.tag(crown, "bob", { amp = 0.3, period = 2.5 })
 end
 
@@ -539,20 +644,48 @@ local function buildTerminal(m: Model)
 	disc(m, "TerminalBase", 6, 0.6, foot + Vector3.new(0, 0.3, 0), STEEL, Enum.Material.Metal, true)
 	local ring = disc(m, "TerminalRing", 6.6, 0.4, foot + Vector3.new(0, 0.2, 0), MAGENTA, Enum.Material.Neon)
 	Decor.pulse(ring, 0.4, 1.6)
-	part(m, "TerminalConsole", Vector3.new(6, 4, 2.6), look * CFrame.new(0, 2.6, 0) * CFrame.Angles(math.rad(-12), 0, 0), Color3.fromRGB(30, 26, 48), Enum.Material.Metal, true)
-	part(m, "TerminalKeys", Vector3.new(5, 0.2, 1.6), look * CFrame.new(0, 4.65, -0.3) * CFrame.Angles(math.rad(-12), 0, 0), CYAN, Enum.Material.Neon).Transparency =
+	part(
+		m,
+		"TerminalConsole",
+		Vector3.new(6, 4, 2.6),
+		look * CFrame.new(0, 2.6, 0) * CFrame.Angles(math.rad(-12), 0, 0),
+		Color3.fromRGB(30, 26, 48),
+		Enum.Material.Metal,
+		true
+	)
+	part(
+		m,
+		"TerminalKeys",
+		Vector3.new(5, 0.2, 1.6),
+		look * CFrame.new(0, 4.65, -0.3) * CFrame.Angles(math.rad(-12), 0, 0),
+		CYAN,
+		Enum.Material.Neon
+	).Transparency =
 		0.3
 	-- A floating holo screen behind the console.
 	local screen = part(m, "TerminalScreen", Vector3.new(14, 8, 0.3), look * CFrame.new(0, 11, 2.5), INK)
 	Decor.text(screen, Enum.NormalId.Front, "PROMPT-TERMINAL", MAGENTA, 12, { 0.04, 0.08, 0.92, 0.42 })
 	Decor.text(screen, Enum.NormalId.Front, "Beschreibe deinen Kämpfer", WHITE, 12, { 0.06, 0.58, 0.88, 0.3 })
-	local screenFrame = part(m, "TerminalScreenFrame", Vector3.new(14.8, 8.8, 0.2), look * CFrame.new(0, 11, 2.75), MAGENTA, Enum.Material.Neon)
+	local screenFrame = part(
+		m,
+		"TerminalScreenFrame",
+		Vector3.new(14.8, 8.8, 0.2),
+		look * CFrame.new(0, 11, 2.75),
+		MAGENTA,
+		Enum.Material.Neon
+	)
 	Decor.tag(screen, "bob", { amp = 0.35, period = 3.2 })
 	Decor.tag(screenFrame, "bob", { amp = 0.35, period = 3.2 })
 	Decor.light(screenFrame, MAGENTA, 24, 1.5)
 	-- The hook for the prompt UI: an invisible anchor where a player stands, facing the console. Another system
 	-- parents its ProximityPrompt to this part (or to its PromptAttachment).
-	local anchor = part(m, "PromptTerminal", Vector3.new(4, 5, 2), look * CFrame.new(0, 2.5, -4) * CFrame.Angles(0, math.pi, 0), INK)
+	local anchor = part(
+		m,
+		"PromptTerminal",
+		Vector3.new(4, 5, 2),
+		look * CFrame.new(0, 2.5, -4) * CFrame.Angles(0, math.pi, 0),
+		INK
+	)
 	anchor.Transparency = 1
 	anchor:SetAttribute("Purpose", "PromptTerminal")
 	local attachment = Instance.new("Attachment")
@@ -565,7 +698,15 @@ local function buildTraining(m: Model)
 	signpost(m, "TRAINING", at(56, 9, 50), at(0, 9, 46), GREEN, 16)
 	for k = 0, 2 do
 		local foot = at(44 + k * 12, 0, 70)
-		part(m, "DummyPost", Vector3.new(0.8, 3, 0.8), foot + Vector3.new(0, 1.5, 0), Color3.fromRGB(110, 80, 50), Enum.Material.Wood, true)
+		part(
+			m,
+			"DummyPost",
+			Vector3.new(0.8, 3, 0.8),
+			foot + Vector3.new(0, 1.5, 0),
+			Color3.fromRGB(110, 80, 50),
+			Enum.Material.Wood,
+			true
+		)
 		local body = part(
 			m,
 			"DummyBody",
@@ -576,9 +717,24 @@ local function buildTraining(m: Model)
 			true
 		)
 		body.Shape = Enum.PartType.Cylinder
-		local head = part(m, "DummyHead", Vector3.one * 2, foot + Vector3.new(0, 7.4, 0), Color3.fromRGB(196, 160, 110), Enum.Material.Fabric, true)
+		local head = part(
+			m,
+			"DummyHead",
+			Vector3.one * 2,
+			foot + Vector3.new(0, 7.4, 0),
+			Color3.fromRGB(196, 160, 110),
+			Enum.Material.Fabric,
+			true
+		)
 		head.Shape = Enum.PartType.Ball
-		part(m, "DummyTarget", Vector3.new(1.8, 1.8, 0.1), foot + Vector3.new(0, 4.6, -1.25), Color3.fromRGB(255, 70, 70), Enum.Material.Neon)
+		part(
+			m,
+			"DummyTarget",
+			Vector3.new(1.8, 1.8, 0.1),
+			foot + Vector3.new(0, 4.6, -1.25),
+			Color3.fromRGB(255, 70, 70),
+			Enum.Material.Neon
+		)
 	end
 end
 
@@ -586,16 +742,39 @@ local function buildLounge(m: Model)
 	-- Benches around a small holo fountain in the south-west.
 	local center = at(-52, 0, 66)
 	disc(m, "FountainBasin", 6, 1.2, center + Vector3.new(0, 0.6, 0), STEEL, Enum.Material.Marble, true)
-	disc(m, "FountainWater", 5.2, 0.2, center + Vector3.new(0, 1.15, 0), Color3.fromRGB(40, 120, 170), Enum.Material.Glass)
+	disc(
+		m,
+		"FountainWater",
+		5.2,
+		0.2,
+		center + Vector3.new(0, 1.15, 0),
+		Color3.fromRGB(40, 120, 170),
+		Enum.Material.Glass
+	)
 	disc(m, "FountainRim", 6.2, 0.3, center + Vector3.new(0, 1, 0), CYAN, Enum.Material.Neon)
-	local jet = part(m, "FountainJet", Vector3.new(1.2, 6, 1.2), center + Vector3.new(0, 4, 0), Color3.fromRGB(150, 230, 255), Enum.Material.Neon)
+	local jet = part(
+		m,
+		"FountainJet",
+		Vector3.new(1.2, 6, 1.2),
+		center + Vector3.new(0, 4, 0),
+		Color3.fromRGB(150, 230, 255),
+		Enum.Material.Neon
+	)
 	jet.Transparency = 0.5
 	Decor.tag(jet, "bob", { amp = 0.6, period = 1.4 })
 	for k = 0, 3 do
 		local angle = k * math.pi / 2
 		local dir = Vector3.new(math.cos(angle), 0, math.sin(angle))
 		local spot = center + dir * 11 + Vector3.new(0, 0.9, 0)
-		part(m, "Bench", Vector3.new(7, 1, 2.2), facing(spot, spot + dir), Color3.fromRGB(110, 80, 60), Enum.Material.WoodPlanks, true)
+		part(
+			m,
+			"Bench",
+			Vector3.new(7, 1, 2.2),
+			facing(spot, spot + dir),
+			Color3.fromRGB(110, 80, 60),
+			Enum.Material.WoodPlanks,
+			true
+		)
 	end
 end
 
@@ -611,14 +790,15 @@ end
 -- Neon towers all around outside the plaza, so the lobby sits in a city instead of a void.
 local function buildSkyline(m: Model)
 	local sides = {
-		{ CFrame.new(ORIGIN + Vector3.new(0, 0, -HALF - 70)), 260 },
-		{ CFrame.new(ORIGIN + Vector3.new(-HALF - 70, 0, 0)) * CFrame.Angles(0, -math.pi / 2, 0), 220 },
-		{ CFrame.new(ORIGIN + Vector3.new(HALF + 70, 0, 0)) * CFrame.Angles(0, math.pi / 2, 0), 220 },
+		-- Each layer's towers face its +Z, toward the plaza.
+		{ frame = CFrame.new(ORIGIN + Vector3.new(0, 0, -HALF - 70)), length = 260 },
+		{ frame = CFrame.new(ORIGIN + Vector3.new(-HALF - 70, 0, 0)) * CFrame.Angles(0, math.pi / 2, 0), length = 220 },
+		{ frame = CFrame.new(ORIGIN + Vector3.new(HALF + 70, 0, 0)) * CFrame.Angles(0, -math.pi / 2, 0), length = 220 },
 	}
 	for i, side in sides do
 		Decor.skyline(m, {
-			from = -side[2] / 2,
-			to = side[2] / 2,
+			from = -side.length / 2,
+			to = side.length / 2,
 			z = 0,
 			baseY = -60,
 			minHeight = 70,
@@ -627,7 +807,7 @@ local function buildSkyline(m: Model)
 			color = Color3.fromRGB(18, 14, 36),
 			windows = if i == 1 then MAGENTA:Lerp(INK, 0.3) else CYAN:Lerp(INK, 0.35),
 			roof = if i == 1 then CYAN else MAGENTA,
-			frame = side[1],
+			frame = side.frame,
 			seed = 40 + i,
 		})
 	end
