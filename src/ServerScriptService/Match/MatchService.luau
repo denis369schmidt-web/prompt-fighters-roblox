@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 
 local ArenaThemes = require(ReplicatedStorage.Shared.Data.ArenaThemes)
 local Arenas = require(ReplicatedStorage.Shared.Data.Arenas)
+local Bot = require(ReplicatedStorage.Shared.Combat.Bot)
 local MatchRunner = require(ReplicatedStorage.Shared.Combat.MatchRunner)
 local Fighters = require(ReplicatedStorage.Shared.Data.Fighters)
 local Visuals = require(ReplicatedStorage.Shared.Data.Visuals)
@@ -23,16 +24,19 @@ local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 
 local LOBBY_SECONDS = 20 -- after the first fighter pick, time to vote and for friends to pick
-local READY_SECONDS = 8 -- once every player in the server has picked
+local READY_SECONDS = 5 -- once every player in the server has picked
 local VOTE_SCAN = 0.2 -- seconds between pad checks
-local RESULTS_SECONDS = 7
+local RESULTS_SECONDS = 16 -- GAME! card, victory scene, podium; ends early once every fighter voted
 local SLOTS = 4
 local SNAPSHOT_EVERY = 2 -- ticks
 local BOT_LEVEL = 3 -- three bots at once: keep them beatable for new players
+local INTRO_COUNTDOWN = 4.8 -- arena card and name plates, then 3 · 2 · 1 (client Cinematics)
+local REMATCH_COUNTDOWN = 4.0 -- a rematch shows a short REVANCHE! card instead of the name plates
 
 -- Events the clients need for effects and the HUD (others stay on the server).
 local NET_EVENTS = {
 	go = true,
+	emote = true,
 	hit = true,
 	block = true,
 	parry = true,
@@ -116,10 +120,14 @@ local votes: { [number]: { index: number, weight: number } } = {}
 local padVotes: { [number]: number? } = {}
 local voteScan = 0
 local arenaId = Visuals.SLICE_ARENA
+-- Rematch votes in the results phase: userId -> true (NOCHMAL) / false (Zur Lobby).
+local rematchVotes: { [number]: boolean } = {}
 
 local function sliceAllowed(fighterId: string): boolean
 	return table.find(Visuals.SLICE_FIGHTERS, fighterId) ~= nil
 end
+
+local rematchTally: () -> { yes: number, no: number, total: number }
 
 local function broadcastState()
 	local current = runner
@@ -131,6 +139,7 @@ local function broadcastState()
 			arena = arenaId,
 			options = options,
 			votes = Arenas.tally(options, votes),
+			rematch = if phase == "results" then rematchTally() else nil,
 			slots = if current
 				then (function()
 					local out = {}
@@ -231,6 +240,56 @@ local function scanPads()
 	end
 end
 
+-- Bot levels from the players' progress (Bot.levelFor): a spread around the average so bots differ, and soft
+-- bots with fewer stocks in a new player's very first match (GROWTH.md: the first finisher comes early).
+local function botSetup(slots: { MatchRunner.Slot }): ({ [number]: number }, boolean)
+	local sum, humans, first = 0, 0, false
+	for _, slot in slots do
+		local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
+		local profile = if player then PlayerData.get(player) else nil
+		if slot.userId then
+			humans += 1
+			if profile then
+				sum += Bot.levelFor(profile.matches, profile.wins, profile.level)
+				first = first or profile.matches == 0
+			else
+				sum += BOT_LEVEL
+			end
+		end
+	end
+	local base = if humans > 0 then math.round(sum / humans) else BOT_LEVEL
+	local gentle = first and humans == 1
+	local levels: { [number]: number } = {}
+	local spread = Bot.lineup(base, SLOTS)
+	for i, slot in slots do
+		if slot.userId == nil then
+			levels[i] = if gentle then 1 else spread[i]
+		end
+	end
+	return levels, gentle
+end
+
+local function launch(slots: { MatchRunner.Slot }, countdown: number)
+	local levels, gentle = botSetup(slots)
+	runner = MatchRunner.new({
+		slots = slots,
+		botLevel = BOT_LEVEL,
+		botLevels = levels,
+		gentle = gentle,
+		botStocks = if gentle then 2 else nil,
+		seed = roundSeed,
+		arena = arenaId,
+		countdown = countdown,
+	})
+	table.clear(rematchVotes)
+	lastSnapshotFrame = 0
+	phase = "match"
+	freezeAll(true)
+	local info = Arenas.byId[arenaId]
+	LobbyBuilder.setStatus("KAMPF LÄUFT", if info then info.name else arenaId)
+	broadcastState()
+end
+
 local function startMatch()
 	local slots: { MatchRunner.Slot } = {}
 	for _, player in Players:GetPlayers() do
@@ -251,18 +310,7 @@ local function startMatch()
 		k += 1
 		table.insert(slots, { userId = nil, fighterId = pool[(roundSeed + k) % #pool + 1] })
 	end
-	runner = MatchRunner.new({
-		slots = slots,
-		botLevel = BOT_LEVEL,
-		seed = roundSeed,
-		arena = arenaId,
-	})
-	lastSnapshotFrame = 0
-	phase = "match"
-	freezeAll(true)
-	local info = Arenas.byId[arenaId]
-	LobbyBuilder.setStatus("KAMPF LÄUFT", if info then info.name else arenaId)
-	broadcastState()
+	launch(slots, INTRO_COUNTDOWN)
 end
 
 -- Places 1..n: the winner first, then by stocks left and damage dealt.
@@ -315,9 +363,11 @@ end
 
 local function finishMatch(current: MatchRunner.Runner)
 	rewardPlayers(current)
+	local place = places(current)
 	local stats = {}
 	for i, f in current.sim.fighters do
 		stats[i] = {
+			place = place[i],
 			kos = f.kos,
 			damage = math.floor(f.damageDealt),
 			bestCombo = f.bestCombo,
@@ -327,8 +377,76 @@ local function finishMatch(current: MatchRunner.Runner)
 	end
 	phase = "results"
 	resultsTimer = RESULTS_SECONDS
+	table.clear(rematchVotes)
 	RemoteHub.fireAll("MatchEvent", { { type = "results", winner = current.sim.result, stats = stats } })
 	broadcastState()
+end
+
+local function toLobby()
+	runner = nil
+	phase = "lobby"
+	table.clear(rematchVotes)
+	newLobby()
+	freezeAll(false)
+	ArenaBuilder.applyLighting(ArenaThemes.neon_alley)
+	broadcastState()
+end
+
+-- Players of the finished match who are still in the server.
+local function matchPlayers(): { number }
+	local out = {}
+	local current = runner
+	if current then
+		for _, slot in current.slots do
+			if slot.userId and Players:GetPlayerByUserId(slot.userId) then
+				table.insert(out, slot.userId)
+			end
+		end
+	end
+	return out
+end
+
+rematchTally = function()
+	local yes, no = 0, 0
+	local ids = matchPlayers()
+	for _, userId in ids do
+		local vote = rematchVotes[userId]
+		if vote == true then
+			yes += 1
+		elseif vote == false then
+			no += 1
+		end
+	end
+	return { yes = yes, no = no, total = #ids }
+end
+
+-- Same fighters, same arena: players who voted NOCHMAL keep their slot, everyone else's fighter becomes a bot.
+local function startRematch()
+	local current = runner :: MatchRunner.Runner
+	local slots: { MatchRunner.Slot } = {}
+	for i, slot in current.slots do
+		local keep = slot.userId ~= nil and rematchVotes[slot.userId] == true
+		slots[i] = { userId = if keep then slot.userId else nil, fighterId = slot.fighterId }
+	end
+	roundSeed += 1
+	launch(slots, REMATCH_COUNTDOWN)
+end
+
+-- Ends the results phase once every fighter voted (or the timer ran out): rematch if anyone wants one.
+local function settleResults(timeUp: boolean)
+	if phase ~= "results" or runner == nil then
+		return
+	end
+	local tally = rematchTally()
+	local everyone = tally.total > 0 and tally.yes + tally.no >= tally.total
+	if not timeUp and not everyone then
+		return
+	end
+	if tally.yes > 0 then
+		startRematch()
+	else
+		toLobby()
+	end
 end
 
 local function onHeartbeat(dt: number)
@@ -388,14 +506,14 @@ local function onHeartbeat(dt: number)
 			finishMatch(current)
 		end
 	elseif phase == "results" then
+		local before = resultsTimer
 		resultsTimer -= dt
+		-- The final snapshot (winner in the Victory pose) goes out unreliably: repeat it now and then.
+		if runner and math.floor(before * 2) ~= math.floor(resultsTimer * 2) then
+			RemoteHub.fireAll("Snapshot", (runner :: MatchRunner.Runner):snapshot())
+		end
 		if resultsTimer <= 0 then
-			runner = nil
-			phase = "lobby"
-			newLobby()
-			freezeAll(false)
-			ArenaBuilder.applyLighting(ArenaThemes.neon_alley)
-			broadcastState()
+			settleResults(true)
 		end
 	end
 end
@@ -429,6 +547,15 @@ function MatchService.start()
 			extra.message = if ok then `{Fighters.get(fighterId).name} freigeschaltet!` else reason
 			extra.bought = if ok then fighterId else nil
 		end, extra)
+	end)
+	RemoteHub.on("VoteRematch", function(player, again: boolean)
+		local current = runner
+		if phase ~= "results" or current == nil or current:slotOf(player.UserId) == nil then
+			return
+		end
+		rematchVotes[player.UserId] = again
+		broadcastState()
+		settleResults(false)
 	end)
 	RemoteHub.on("VoteArena", function(player, id: string)
 		local index = table.find(options, id)

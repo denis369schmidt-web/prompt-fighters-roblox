@@ -12,6 +12,10 @@ local ProfileState = require(script.Parent.Parent.State.ProfileState)
 
 local MetaHud = {}
 
+-- Cinematics holds the reward card back until the podium is on screen (MetaHud.holdReward).
+local rewardGate = true
+local revealReward: () -> () = function() end
+
 local FONT = Enum.Font.GothamBlack
 local GOLD = Color3.fromRGB(255, 215, 80)
 local PANEL = Color3.fromRGB(16, 14, 30)
@@ -55,6 +59,14 @@ function MetaHud.start()
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 2
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local uiScale = Instance.new("UIScale")
+	uiScale.Parent = gui
+	local function rescale()
+		local view = workspace.CurrentCamera.ViewportSize
+		uiScale.Scale = math.clamp(math.min(view.X / 1280, view.Y / 760), 0.6, 1)
+	end
+	rescale()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 
 	-- Profile bar, top left.
 	local bar = Instance.new("Frame")
@@ -133,7 +145,7 @@ function MetaHud.start()
 	local pendingReward: { [string]: any }? = nil
 
 	local function showReward()
-		if pendingReward == nil then
+		if pendingReward == nil or not rewardGate then
 			return
 		end
 		local reward = pendingReward :: { [string]: any }
@@ -165,6 +177,8 @@ function MetaHud.start()
 		TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Position = UDim2.new(0.5, 0, 0.55, 0) })
 			:Play()
 	end
+
+	revealReward = showReward
 
 	ProfileState.onChange(function(view)
 		level.Text = `LV {view.level} · {view.title}`
@@ -203,6 +217,13 @@ function MetaHud.start()
 	ProfileState.onChange(function()
 		bar.Visible = MatchState.phase ~= "match"
 	end)
+end
+
+function MetaHud.holdReward(hold: boolean)
+	rewardGate = not hold
+	if not hold and MatchState.phase == "results" then
+		revealReward()
+	end
 end
 
 return MetaHud

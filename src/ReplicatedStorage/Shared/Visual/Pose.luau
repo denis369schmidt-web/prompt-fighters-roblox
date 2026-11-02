@@ -2028,6 +2028,38 @@ local function grabbed(p: PoseOutput, input: PoseInput, s: Style)
 	p.damping = 0.6
 end
 
+-- Victory (the winner after the match) and Taunt (a bot showing off after a KO): display-only states the server
+-- writes into the snapshot. Victory thrusts a fist to the sky and bobs with it; Taunt waves the opponent in.
+local function victory(p: PoseOutput, input: PoseInput, s: Style)
+	local e = ease.outBack(clamp01((input.stateTime or 1) / 0.35), 1.4)
+	local pump = math.sin(input.t * 5 + s.seed)
+	stance(p, input, s)
+	if input.state == "Taunt" then
+		set(p, {
+			Waist = { 8 * e, 10 * e, 0 },
+			Neck = { 14 * e, -10 * e, 0 },
+			RightShoulder = { lerp(40, 85, e), 0, -20 },
+			RightElbow = { 70 + pump * 40 },
+			RightWrist = { 30 },
+			LeftShoulder = { 15, 0, -35 * e },
+			LeftElbow = { 95 * e },
+		})
+	else
+		set(p, {
+			Waist = { 10 * e, -8 * e, 0 },
+			Neck = { 22 * e, 0, 0 },
+			RightShoulder = { lerp(40, 172, e), 0, -12 },
+			RightElbow = { 12 + pump * 10 },
+			RightWrist = { 0 },
+			LeftShoulder = { 15, 0, -38 * e },
+			LeftElbow = { 100 * e },
+		})
+		p.rootY = 0.15 * e + math.max(0, pump) * 0.12
+	end
+	p.stiffness = 22
+	p.damping = 0.7
+end
+
 --------------------------------------------------------------------------------------------------------------
 -- Finishing passes
 
@@ -2085,6 +2117,9 @@ function Pose.compute(input: PoseInput): PoseOutput
 		plantFeet(p, 0.9)
 	elseif state == "Dodge" then
 		dodge(p, input, s)
+	elseif state == "Victory" or state == "Taunt" then
+		victory(p, input, s)
+		plantFeet(p, 1)
 	elseif input.blocking then
 		shield(p, input, s)
 		plantFeet(p, 1)

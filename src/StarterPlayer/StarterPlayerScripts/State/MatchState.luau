@@ -25,6 +25,8 @@ local MatchState = {
 	shots = {} :: { [number]: { x: number, y: number, size: number } },
 	-- item id -> kind index, position and holder state (see Combat/Items.encode)
 	items = {} :: { [number]: { kind: number, x: number, y: number, state: number } },
+	-- results screen: rematch votes of the match's players
+	rematch = nil :: { yes: number, no: number, total: number }?,
 }
 
 local listeners: { (event: { [string]: any }) -> () } = {}
@@ -85,6 +87,11 @@ function MatchState.start()
 	eventRemote.OnClientEvent:Connect(function(events)
 		for _, event in events do
 			if event.type == "phase" then
+				-- A new match (also a rematch straight from the results) restarts the frame counter.
+				if event.phase == "match" and MatchState.phase ~= "match" then
+					MatchState.snapshot, MatchState.previous = nil, nil
+				end
+				MatchState.rematch = event.rematch
 				MatchState.phase = event.phase
 				MatchState.timer = event.timer
 				MatchState.arena = event.arena or MatchState.arena

@@ -1,5 +1,20 @@
 # Changelog
 
+## Bots mit Charakter, Match-Kino und Revanche (2026-11-02)
+
+- Bots (`Combat/Bot`): Persönlichkeit aus dem Archetyp (Draufgänger, Fernkämpfer, Packer, Konterer, Allrounder),
+  Stufe 1–9 steuert Reaktionszeit, Fehler, Schild/Ausweichen auf sichtbare Angriffe, Combos (Jab → Ftilt,
+  Utilt → Uair), Bestrafen von Fehlschlägen, Kantenwache und Ledge-Trap, Würfe Richtung Kante, Signatur mit voller
+  Superleiste, Items aufheben und werfen. Zielwahl verteilt sich (kein Dreier-Angriff auf einen Spieler), Bots
+  provozieren nach einem KO. Bot-Stufe nach Spielerfortschritt, gestaffelt pro Bot; erstes Match: sanfte Bots
+  der Stufe 1 mit 2 Stocks.
+- Intro: Letterbox, Arena-Karte, Namensschilder mit VS, Kameraschwenk, 3 · 2 · 1 · KAMPF!; Revanche mit
+  REVANCHE!-Karte.
+- Ansagen (`UI/Announcer`): ERSTER KO!, LETZTER STOCK!, COMBO x5, SUDDEN DEATH, 10 SEKUNDEN!, PARIERT!, Finisher-Name.
+- Ende: GAME!-Standbild, Kamera kreist um den Sieger in Siegerpose (`Pose` Zustände `Victory`/`Taunt`),
+  Podium mit Platz, KOs, Schaden, Combo, danach Belohnungskarte und NOCHMAL / Zur Lobby (`VoteRematch`).
+  Ergebnisphase endet, sobald alle abgestimmt haben; Lobby-Start 5 s statt 8 s, wenn alle bereit sind.
+
 ## Neue Kämpfer-Modelle (2026-10-30)
 
 - Alle 16 Startkämpfer neu modelliert, weiterhin nur aus Parts (keine Meshes): Kapsel-Glieder mit Kugelgelenken,

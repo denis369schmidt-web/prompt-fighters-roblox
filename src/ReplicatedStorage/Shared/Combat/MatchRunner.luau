@@ -26,6 +26,9 @@ export type RunnerConfig = {
 	arena: string?,
 	timeLimit: number?,
 	countdown: number?,
+	botLevels: { [number]: number }?, -- per-slot bot level (else botLevel)
+	gentle: boolean?, -- a new player's first match: soft bots (Bot.setGentle)
+	botStocks: number?, -- stocks for bot slots (else stocks)
 }
 
 export type Runner = {
@@ -84,6 +87,20 @@ function MatchRunner.new(config: RunnerConfig): Runner
 		latched = {},
 		accumulator = 0,
 	}, MatchRunner)
+	for i, slot in config.slots do
+		if slot.userId == nil then
+			local level = config.botLevels and config.botLevels[i]
+			if level then
+				self.brain:setLevel(i, level)
+			end
+			if config.gentle then
+				self.brain:setGentle(i, true)
+			end
+			if config.botStocks then
+				self.sim.fighters[i].lives = config.botStocks
+			end
+		end
+	end
 	return (self :: any) :: Runner
 end
 
@@ -144,6 +161,9 @@ function MatchRunner.step(self: Runner, dt: number): ({ Simulation.Event }, numb
 		for _, e in self.sim.events do
 			table.insert(events, e)
 		end
+		for _, e in self.brain:takeEmotes() do
+			table.insert(events, e)
+		end
 	end
 	return events, ticks
 end
@@ -158,11 +178,18 @@ function MatchRunner.snapshot(self: Runner): { any }
 	local sim = self.sim
 	local list: { { any } } = {}
 	for i, s in sim:snapshot() do
+		-- Display-only states for the renderer: the winner's victory pose, a bot's taunt.
+		local state = s.state
+		if sim.result == i then
+			state = "Victory"
+		elseif state == "Ready" and s.grounded and self.brain:emoting(i) then
+			state = "Taunt"
+		end
 		list[i] = {
 			round2(s.x),
 			round2(s.y),
 			s.facing,
-			s.state,
+			state,
 			s.move or "",
 			s.moveStage or "",
 			round2(s.percent),

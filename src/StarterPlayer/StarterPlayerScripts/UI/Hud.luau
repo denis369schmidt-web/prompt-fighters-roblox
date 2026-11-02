@@ -480,14 +480,10 @@ function Hud.start()
 			-- The picker opens by itself only while no fighter is chosen.
 			setPickerOpen(inLobby and (chosen == nil or picker.Visible))
 			showVotes()
-			cardRow.Visible = not inLobby
+			cardRow.Visible = event.phase == "match" -- the results podium (Cinematics) takes over after
 			touch.Visible = event.phase == "match" and MatchState.mySlot ~= nil and UserInputService.TouchEnabled
 			if event.phase == "match" and lastPhase ~= "match" then
-				buildCards()
-				local info = Arenas.byId[event.arena or ""]
-				if info then
-					showBanner(info.name, "ARENA", 1.6)
-				end
+				buildCards() -- arena card, name plates and 3 · 2 · 1 come from Controllers/Cinematics
 			end
 			if inLobby then
 				timer.Text = "" -- the lobby guide shows the countdown
@@ -496,28 +492,14 @@ function Hud.start()
 				end
 			end
 			lastPhase = event.phase
-		elseif t == "go" then
-			showBanner("LOS!", nil, 0.8)
-		elseif t == "ring_out" and event.lives > 0 then
-			local slot = MatchState.slots[event.actor]
-			showBanner("KO!", if slot then slot.name else nil, 0.9)
 		elseif t == "finish_him" then
 			showBanner("FINISHER!", "Code: " .. table.concat(event.code, " "), 5)
 		elseif t == "finisher" then
-			showBanner(event.name, "FINISHER", 2.5)
+			banner.Text, subBanner.Text = "", "" -- Cinematics announces the finisher's name
 		elseif t == "fighter_eliminated" and event.actor == MatchState.mySlot then
 			showBanner("DU BIST RAUS", "Zuschauen – nächste Runde gleich", 3)
-		elseif t == "sudden_death" then
-			showBanner("SUDDEN DEATH", "150 % – ein Treffer entscheidet", 2)
-		elseif t == "results" then
-			local winner = MatchState.slots[event.winner]
-			if winner then
-				local you = event.winner == MatchState.mySlot
-				showBanner(if you then "SIEG!" else `{winner.name} GEWINNT`, if you then "Nochmal?" else nil, 6)
-			else
-				showBanner("UNENTSCHIEDEN", nil, 6)
-			end
 		end
+		-- KO, KAMPF!, SUDDEN DEATH, GAME! and the winner are announced by UI/Announcer and Controllers/Cinematics.
 	end)
 
 	RunService.RenderStepped:Connect(function()
@@ -526,7 +508,7 @@ function Hud.start()
 		end
 		local snap = MatchState.snapshot :: MatchRunner.NetSnapshot
 		if snap.countdown > 0 then
-			timer.Text = tostring(math.ceil(snap.countdown))
+			timer.Text = "" -- Cinematics shows 3 · 2 · 1
 		elseif snap.finishPhase then
 			timer.Text = string.format("%.1f", math.max(0, snap.finishTimer))
 		else
