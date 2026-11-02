@@ -115,7 +115,10 @@ end
 local function onEvent(event: { [string]: any })
 	local kind = event.type
 	if kind == "phase" then
-		Juice.reset()
+		-- Keep the deciding KO's slow motion running into the results; clear it when a new match or the lobby starts.
+		if event.phase == "lobby" or event.phase == "match" then
+			Juice.reset()
+		end
 	elseif kind == "hit" then
 		local impact = GameFeel.impact(event.damage or 5, event.impulse, event.superHit, event.special)
 		Juice.addTrauma(impact.trauma)

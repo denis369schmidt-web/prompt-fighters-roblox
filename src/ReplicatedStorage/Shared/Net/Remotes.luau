@@ -29,6 +29,8 @@ local Remotes: { [string]: RemoteDef } = {
 	FinisherCode = { kind = "event", direction = "toServer", perSecond = 10, args = { "string" } },
 	SelectFighter = { kind = "event", direction = "toServer", perSecond = 4, args = { "string" } },
 	VoteArena = { kind = "event", direction = "toServer", perSecond = 2, args = { "string" } },
+	-- Results screen: true = NOCHMAL (same fighters and arena), false = Zur Lobby.
+	VoteRematch = { kind = "event", direction = "toServer", perSecond = 2, args = { "boolean" } },
 	BuyWithCoins = { kind = "function", direction = "toServer", perSecond = 3, args = { "string", "string" } },
 	SubmitPrompt = { kind = "function", direction = "toServer", perSecond = 0.5, args = { "string" } },
 	ClaimReward = { kind = "function", direction = "toServer", perSecond = 2, args = { "string" } },
