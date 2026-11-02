@@ -7,6 +7,7 @@ export type RemoteDef = {
 	direction: "toServer" | "toClient",
 	perSecond: number?,
 	args: { string }?,
+	maxLength: number?, -- longest string argument in characters (default Guard.MAX_STRING bytes)
 }
 
 local Remotes: { [string]: RemoteDef } = {
@@ -30,7 +31,10 @@ local Remotes: { [string]: RemoteDef } = {
 	SelectFighter = { kind = "event", direction = "toServer", perSecond = 4, args = { "string" } },
 	VoteArena = { kind = "event", direction = "toServer", perSecond = 2, args = { "string" } },
 	BuyWithCoins = { kind = "function", direction = "toServer", perSecond = 3, args = { "string", "string" } },
-	SubmitPrompt = { kind = "function", direction = "toServer", perSecond = 0.5, args = { "string" } },
+	-- Prompt fighters: raw prompt text (filtered on the server before anything else) or a 6-character share code.
+	-- Both answer { ok, message?, fighter? } (Prompt/Interpreter Summary).
+	SubmitPrompt = { kind = "function", direction = "toServer", perSecond = 0.5, args = { "string" }, maxLength = 120 },
+	LoadPromptCode = { kind = "function", direction = "toServer", perSecond = 1, args = { "string" }, maxLength = 16 },
 	ClaimReward = { kind = "function", direction = "toServer", perSecond = 2, args = { "string" } },
 }
 

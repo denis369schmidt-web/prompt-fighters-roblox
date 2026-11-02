@@ -51,6 +51,9 @@ export type Fighter = Roster.RosterEntry & {
 local Fighters = {}
 Fighters.list = {} :: { Fighter }
 Fighters.byId = {} :: { [string]: Fighter }
+-- Builds fighters that are not in the static roster on first use (Prompt/Registry installs it for prompt
+-- fighters, ids "prompt_<CODE>"). Runtime fighters go into byId only, never into list.
+Fighters.resolver = nil :: ((id: string) -> Fighter?)?
 
 for _, entry in Roster do
 	local preset = (Presets :: any)[entry.id]
@@ -84,6 +87,9 @@ end
 
 function Fighters.get(id: string): Fighter
 	local fighter = Fighters.byId[id]
+	if fighter == nil and Fighters.resolver then
+		fighter = (Fighters.resolver :: (string) -> Fighter?)(id)
+	end
 	assert(fighter, `unknown fighter {id}`)
 	return fighter
 end

@@ -7,6 +7,7 @@
 --   lune run scripts/export-scene.luau lobby out.json
 --   lune run scripts/export-scene.luau fighters out.json   (launch roster in a row, for portraits)
 --   lune run scripts/export-scene.luau portrait ninja,golem 30 out.json   (close-up set, turned 30 degrees)
+--   lune run scripts/export-scene.luau prompts "Eisgolem mit Hammer;lava ninja" 20 out.json   (prompt fighters)
 --   lune run scripts/export-scene.luau poses spec.json out.json
 --     (pose sheet: spec is a JSON list of { fighter, ...PoseInput fields }; rigs are posed with Visual/Pose and
 --     forward kinematics through the Motor6Ds, eight per row, rows stacked upward)
@@ -170,6 +171,48 @@ elseif kind == "portrait" then
 		end
 		rig.Parent = root
 	end
+elseif kind == "prompts" then
+	-- Prompt fighters (Shared/Prompt) from texts separated by ";", in an idle pose, side by side on small plinths.
+	local Registry = Loader.require(Shared.Prompt.Registry)
+	local roblox = require("@lune/roblox")
+	local texts = string.split(process.args[2], ";")
+	local yaw = tonumber(process.args[3]) or 0
+	root = roblox.Instance.new("Model")
+	for i, text in texts do
+		local result = Registry.fromText(text)
+		print(`{text} -> {result.fighter.name} ({result.summary.title}) code {result.code}: {table.concat(result.look.gear, ", ")}`)
+		local x = ((#texts + 1) / 2 - i) * 6
+		local origin = roblox.CFrame.new(x, 0, 0)
+		local plinth = roblox.Instance.new("Part")
+		plinth.Size = roblox.Vector3.new(5, 0.4, 5)
+		plinth.CFrame = origin * roblox.CFrame.new(0, -0.2, 0)
+		plinth.Color = roblox.Color3.fromHex(result.look.glow):Lerp(roblox.Color3.fromRGB(30, 28, 44), 0.75)
+		plinth.Parent = root
+		-- Name plate in front: name, then title and share code (the prompt itself is not shown).
+		local plate = roblox.Instance.new("Part")
+		plate.Size = roblox.Vector3.new(5.6, 1.5, 0.2)
+		plate.CFrame = origin * roblox.CFrame.new(0, -1.2, -2.7)
+		plate.Color = roblox.Color3.fromRGB(18, 16, 30)
+		plate.Parent = plate.Parent or root
+		local gui = roblox.Instance.new("SurfaceGui")
+		gui.Face = roblox.Enum.NormalId.Front
+		gui.Parent = plate
+		local lines = {
+			{ result.fighter.name, roblox.Color3.fromHex(result.look.glow), 0.06, 0.5 },
+			{ `{result.summary.title} · {result.code}`, roblox.Color3.fromRGB(225, 225, 235), 0.6, 0.3 },
+		}
+		for _, line in lines do
+			local label = roblox.Instance.new("TextLabel")
+			label.Text = line[1]
+			label.TextColor3 = line[2]
+			label.Position = roblox.UDim2.fromScale(0, line[3])
+			label.Size = roblox.UDim2.fromScale(1, line[4])
+			label.Parent = gui
+		end
+		-- Idle pose, turned from the fight's side view toward the camera (at -Z).
+		posedRig({ fighter = result.id, t = 0.3, phase = 0.3 }, origin * roblox.CFrame.Angles(0, math.rad(90 + yaw), 0)).Parent =
+			root
+	end
 elseif kind == "poses" then
 	local roblox = require("@lune/roblox")
 	local specs = serde.decode("json", fs.readFile(process.args[2]))
@@ -197,7 +240,7 @@ elseif kind == "scene" then
 	end
 else
 	error(
-		"usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> | poses <spec.json> | scene <spec.json> <out.json>"
+		"usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> | prompts <a;b> <yawDeg> | poses <spec.json> | scene <spec.json> <out.json>"
 	)
 end
 local out = process.args[#process.args]

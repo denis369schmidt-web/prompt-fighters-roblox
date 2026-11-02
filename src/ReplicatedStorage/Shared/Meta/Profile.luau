@@ -4,6 +4,7 @@
 -- No Roblox services here: the server (Server/Data/PlayerData) loads and saves, tests call these directly.
 
 local Fighters = require(script.Parent.Parent.Data.Fighters)
+local PromptCode = require(script.Parent.Parent.Prompt.Code)
 local Progression = require(script.Parent.Parent.Data.Progression)
 local Visuals = require(script.Parent.Parent.Data.Visuals)
 
@@ -19,6 +20,7 @@ export type Profile = {
 	fighterXp: { [string]: number },
 	loginDay: number, -- day number (days since 1970) of the last login reward
 	loginStreak: number, -- 1..7, day of the login calendar reached
+	promptFighters: { string }, -- share codes of the last prompt fighters (Prompt/Code), newest first
 }
 
 export type MatchStats = {
@@ -42,8 +44,10 @@ export type MatchReward = {
 
 local Profile = {}
 
-Profile.VERSION = 1
+-- v2: promptFighters
+Profile.VERSION = 2
 Profile.START_COINS = 150
+Profile.PROMPT_HISTORY = 3
 
 function Profile.new(): Profile
 	return {
@@ -58,6 +62,7 @@ function Profile.new(): Profile
 		fighterXp = {},
 		loginDay = 0,
 		loginStreak = 0,
+		promptFighters = {},
 	}
 end
 
@@ -73,10 +78,34 @@ function Profile.migrate(data: any): Profile
 			(fresh :: any)[key] = value
 		end
 	end
+	-- Only well-formed codes survive (the list is shown and rebuilt on the client).
+	local codes: { string } = {}
+	for _, code in fresh.promptFighters do
+		if type(code) == "string" and PromptCode.normalize(code) == code and #codes < Profile.PROMPT_HISTORY then
+			table.insert(codes, code)
+		end
+	end
+	fresh.promptFighters = codes
 	fresh.version = Profile.VERSION
 	fresh.level = math.max(1, math.floor(fresh.level))
 	fresh.coins = math.max(0, math.floor(fresh.coins))
 	return fresh
+end
+
+-- Remembers a prompt fighter by its share code (newest first, at most PROMPT_HISTORY, no duplicates).
+function Profile.addPromptFighter(profile: Profile, code: string): boolean
+	if PromptCode.normalize(code) ~= code then
+		return false
+	end
+	local at = table.find(profile.promptFighters, code)
+	if at then
+		table.remove(profile.promptFighters, at)
+	end
+	table.insert(profile.promptFighters, 1, code)
+	while #profile.promptFighters > Profile.PROMPT_HISTORY do
+		table.remove(profile.promptFighters)
+	end
+	return true
 end
 
 -- Starter fighters are always usable; the others once unlocked (coins or free unlock).
@@ -165,7 +194,10 @@ function Profile.applyMatch(profile: Profile, fighterId: string, stats: MatchSta
 	profile.coins += coins
 	profile.matches += 1
 	profile.kos += stats.kos
-	profile.fighterXp[fighterId] = (profile.fighterXp[fighterId] or 0) + xp
+	-- Mastery is for roster fighters; prompt fighters (runtime ids) would grow the save without end.
+	if Fighters.list and table.find(Fighters.list, Fighters.byId[fighterId]) then
+		profile.fighterXp[fighterId] = (profile.fighterXp[fighterId] or 0) + xp
+	end
 	local unlocked: string? = nil
 	if stats.won then
 		profile.wins += 1
@@ -220,6 +252,7 @@ function Profile.view(profile: Profile): { [string]: any }
 		wins = profile.wins,
 		owned = owned,
 		winsToUnlock = Progression.WINS_PER_FIGHTER_UNLOCK - profile.wins % Progression.WINS_PER_FIGHTER_UNLOCK,
+		prompts = table.clone(profile.promptFighters),
 	}
 end
 

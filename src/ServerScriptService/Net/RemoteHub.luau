@@ -46,6 +46,17 @@ function RemoteHub.on(name: string, handler: (player: Player, ...any) -> ())
 	end)
 end
 
+-- Answers a RemoteFunction. Calls that fail the Guard get `rejected` back instead of reaching the handler.
+function RemoteHub.handle(name: string, handler: (player: Player, ...any) -> any, rejected: any)
+	local remote = instances[name] :: RemoteFunction
+	remote.OnServerInvoke = function(player, ...)
+		if guard:allow(player.UserId, name, os.clock(), { ... }) then
+			return handler(player, ...)
+		end
+		return rejected
+	end
+end
+
 function RemoteHub.fireAll(name: string, ...: any)
 	(instances[name] :: any):FireAllClients(...)
 end

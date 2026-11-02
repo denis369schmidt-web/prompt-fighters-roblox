@@ -6,6 +6,7 @@
 -- unpublished Studio place, a live server and on every device. Runs on the client; each client builds its own copies.
 
 local GearData = require(script.Parent.GearData)
+local PromptGear = require(script.Parent.PromptGear)
 local Looks = require(script.Parent.Parent.Data.Looks)
 
 local RigBuilder = {}
@@ -174,13 +175,17 @@ local function buildPiece(ctx: Ctx, d: GearData.Piece)
 		size,
 		CFrame.new(position * sc) * rotation,
 		tone(ctx.look, d.color),
-		material(d.material),
+		material(if ctx.look.materials then ctx.look.materials[d.material] or d.material else d.material),
 		d.shape,
 		d.transparency
 	)
 end
 
-local GEAR: { [string]: { GearData.Piece } } = GearData :: any
+local GEAR: { [string]: { GearData.Piece } } = table.clone(GearData :: any)
+-- Prompt fighter gear (weapons and accessories the roster does not use).
+for gearName, pieces in PromptGear :: any do
+	GEAR[gearName] = GEAR[gearName] or pieces
+end
 RigBuilder.GEAR = GEAR
 
 -- Bones at scale 1 (studs, rig faces -Z, feet at y = 0): name, size, center. Arm bones move out with the build's

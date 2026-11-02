@@ -59,6 +59,7 @@ export type Look = {
 	belt: string?,
 	neck: string?,
 	headOffset: { number }?, -- head position relative to the neck bone, in head units (default 0, 0.1, 0)
+	materials: { [string]: string }?, -- gear material swaps, e.g. { Slate = "Ice" } for an ice golem
 }
 
 local Looks = {}
@@ -408,6 +409,11 @@ function Looks.get(fighterId: string): Look
 		return look
 	end
 	local def = Fighters.get(fighterId)
+	-- Runtime fighters (prompt fighters) register their look while Fighters.get resolves them.
+	local registered = Looks.BY_ID[fighterId]
+	if registered then
+		return registered
+	end
 	local color = Visuals.elementColor(def.element)
 	local heavy = def.weight >= 1.15
 	return {

@@ -15,13 +15,14 @@ local Guard = {}
 Guard.__index = Guard
 
 local MAX_STRING = 200
+Guard.MAX_STRING = MAX_STRING
 
 function Guard.new(defs: { [string]: Remotes.RemoteDef }?): Guard
 	local self = setmetatable({ defs = defs or Remotes, buckets = {} }, Guard)
 	return (self :: any) :: Guard
 end
 
-local function argsValid(schema: { string }, args: { any }): boolean
+local function argsValid(schema: { string }, args: { any }, maxLength: number?): boolean
 	if #args ~= #schema then
 		return false
 	end
@@ -33,8 +34,15 @@ local function argsValid(schema: { string }, args: { any }): boolean
 		if kind == "number" and (value ~= value or value == math.huge or value == -math.huge) then
 			return false
 		end
-		if kind == "string" and #value > MAX_STRING then
-			return false
+		if kind == "string" then
+			if #value > MAX_STRING then
+				return false
+			end
+			-- Text must be valid UTF-8 and within the remote's character limit.
+			local chars = utf8.len(value)
+			if chars == nil or (maxLength ~= nil and chars > maxLength) then
+				return false
+			end
 		end
 	end
 	return true
@@ -46,7 +54,7 @@ function Guard.allow(self: Guard, userId: number, name: string, now: number, arg
 		return false
 	end
 	local perSecond = def.perSecond :: number
-	if not argsValid(def.args :: { string }, args) then
+	if not argsValid(def.args :: { string }, args, def.maxLength) then
 		return false
 	end
 	local perPlayer = self.buckets[userId]
