@@ -21,6 +21,10 @@ export type Profile = {
 	loginDay: number, -- day number (days since 1970) of the last login reward
 	loginStreak: number, -- 1..7, day of the login calendar reached
 	promptFighters: { string }, -- share codes of the last prompt fighters (Prompt/Code), newest first
+	-- Daily Challenge and Boss-Raid (Meta/ModeRewards); older saves get the defaults through migrate
+	challengeDay: number, -- day number of the last completed daily challenge (paid once per day)
+	challengeStreak: number, -- 1..7, streak day reached
+	bossWins: { [string]: number }, -- boss id -> raid victories (the first one pays a bonus and a title)
 }
 
 export type MatchStats = {
@@ -63,6 +67,9 @@ function Profile.new(): Profile
 		loginDay = 0,
 		loginStreak = 0,
 		promptFighters = {},
+		challengeDay = 0,
+		challengeStreak = 0,
+		bossWins = {},
 	}
 end
 
@@ -86,6 +93,15 @@ function Profile.migrate(data: any): Profile
 		end
 	end
 	fresh.promptFighters = codes
+	-- Raid victories: only whole, positive counts under string keys survive.
+	local wins: { [string]: number } = {}
+	for id, count in fresh.bossWins do
+		if type(id) == "string" and type(count) == "number" and count >= 1 then
+			wins[id] = math.floor(count)
+		end
+	end
+	fresh.bossWins = wins
+	fresh.challengeStreak = math.clamp(math.floor(fresh.challengeStreak), 0, 7)
 	fresh.version = Profile.VERSION
 	fresh.level = math.max(1, math.floor(fresh.level))
 	fresh.coins = math.max(0, math.floor(fresh.coins))
@@ -253,6 +269,9 @@ function Profile.view(profile: Profile): { [string]: any }
 		owned = owned,
 		winsToUnlock = Progression.WINS_PER_FIGHTER_UNLOCK - profile.wins % Progression.WINS_PER_FIGHTER_UNLOCK,
 		prompts = table.clone(profile.promptFighters),
+		challengeDay = profile.challengeDay,
+		challengeStreak = profile.challengeStreak,
+		bossWins = table.clone(profile.bossWins),
 	}
 end
 

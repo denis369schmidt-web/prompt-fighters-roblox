@@ -6,6 +6,9 @@
 -- and every client's camera shows the arena.
 -- During the match the server ticks the MatchRunner at 60 Hz, sends snapshots at 30 Hz (unreliable) and
 -- match events reliably. Players who join mid-match watch and play the next round.
+-- Modes (World/ModeBoard pads or VoteMode): SCHNELLKAMPF (default), BOSS-RAID (players plus bot helpers against
+-- the next boss in Data/Bosses order, Combat/BossFight) and TAGES-CHALLENGE (Data/DailyChallenge of the UTC day,
+-- paid once per day through Meta/ModeRewards). The mode parts are marked "Modes" below.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +17,10 @@ local RunService = game:GetService("RunService")
 local ArenaThemes = require(ReplicatedStorage.Shared.Data.ArenaThemes)
 local Arenas = require(ReplicatedStorage.Shared.Data.Arenas)
 local Bot = require(ReplicatedStorage.Shared.Combat.Bot)
+local BossFight = require(ReplicatedStorage.Shared.Combat.BossFight)
+local Bosses = require(ReplicatedStorage.Shared.Data.Bosses)
+local DailyChallenge = require(ReplicatedStorage.Shared.Data.DailyChallenge)
+local ModeRewards = require(ReplicatedStorage.Shared.Meta.ModeRewards)
 local MatchRunner = require(ReplicatedStorage.Shared.Combat.MatchRunner)
 local Fighters = require(ReplicatedStorage.Shared.Data.Fighters)
 local Visuals = require(ReplicatedStorage.Shared.Data.Visuals)
@@ -22,6 +29,7 @@ local PlayerData = require(script.Parent.Parent.Data.PlayerData)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
+local ModeBoard = require(script.Parent.Parent.World.ModeBoard)
 local PromptService = require(script.Parent.Parent.Prompt.PromptService)
 
 local LOBBY_SECONDS = 20 -- after the first fighter pick, time to vote and for friends to pick
@@ -33,6 +41,8 @@ local SNAPSHOT_EVERY = 2 -- ticks
 local BOT_LEVEL = 3 -- three bots at once: keep them beatable for new players
 local INTRO_COUNTDOWN = 4.8 -- arena card and name plates, then 3 · 2 · 1 (client Cinematics)
 local REMATCH_COUNTDOWN = 4.0 -- a rematch shows a short REVANCHE! card instead of the name plates
+local RAID_COUNTDOWN = 6.5 -- boss name card and intro line before 3 · 2 · 1 (client UI/BossHud)
+local MODE_STATE_EVERY = 4 -- ticks between BossState packets (15 Hz)
 
 -- Events the clients need for effects and the HUD (others stay on the server).
 local NET_EVENTS = {
@@ -103,6 +113,28 @@ local NET_EVENTS = {
 	bulwark_block = true,
 	counter = true,
 }
+-- Modes: Boss-Raid and mutator events (Combat/BossFight, Combat/MutatorRules).
+for _, name in
+	{
+		"boss_hit",
+		"hero_hit",
+		"hero_down",
+		"boss_windup",
+		"boss_attack",
+		"boss_slam",
+		"boss_phase",
+		"boss_shatter",
+		"boss_phase_ready",
+		"boss_enrage",
+		"boss_defeated",
+		"raid_failed",
+		"mutator_swap",
+		"mutator_bomb",
+		"mutator_bomb_hit",
+	}
+do
+	NET_EVENTS[name] = true
+end
 
 local MatchService = {}
 
@@ -124,11 +156,34 @@ local arenaId = Visuals.SLICE_ARENA
 -- Rematch votes in the results phase: userId -> true (NOCHMAL) / false (Zur Lobby).
 local rematchVotes: { [number]: boolean } = {}
 
+-- Modes: lobby votes, the mode of the running match and its extra MatchRunner config (kept for the rematch).
+local MODES = ModeBoard.MODES
+local modeVotes: { [number]: { index: number, weight: number } } = {}
+local modePadVotes: { [number]: number? } = {}
+local mode = "quick"
+local raidRound = 0
+local nextBoss = Bosses.forRound(1)
+local challenge = DailyChallenge.today(os.time())
+local challengeInfo = DailyChallenge.describe(challenge)
+local launchExtra: { [string]: any }? = nil
+
 local function sliceAllowed(fighterId: string): boolean
 	return table.find(Visuals.SLICE_FIGHTERS, fighterId) ~= nil
 end
 
 local rematchTally: () -> { yes: number, no: number, total: number }
+
+-- Modes: what the clients show: the vote, the next (or running) boss and today's challenge.
+local function modeInfo(): { [string]: any }
+	local current = runner
+	local raid = if current then current.raid else nil
+	return {
+		options = MODES,
+		votes = Arenas.tally(MODES, modeVotes),
+		boss = if raid then raid.bossId else nextBoss,
+		challenge = challengeInfo,
+	}
+end
 
 local function broadcastState()
 	local current = runner
@@ -141,6 +196,8 @@ local function broadcastState()
 			options = options,
 			votes = Arenas.tally(options, votes),
 			rematch = if phase == "results" then rematchTally() else nil,
+			mode = mode,
+			modeInfo = modeInfo(),
 			slots = if current
 				then (function()
 					local out = {}
@@ -196,8 +253,65 @@ local function showLobbyStatus()
 	end
 end
 
+-- Modes: today's challenge (a new UTC day brings a new one), the mode pads and the raid boss sign.
+local function refreshChallenge()
+	local today = DailyChallenge.dayOf(os.time())
+	if today ~= challenge.day then
+		challenge = DailyChallenge.forDay(today)
+		challengeInfo = DailyChallenge.describe(challenge)
+	end
+	ModeBoard.setChallenge(challengeInfo)
+end
+
+local function showModes()
+	local totals = Arenas.tally(MODES, modeVotes)
+	local best, leading = 0, nil
+	for i, total in totals do
+		if total > best then
+			best, leading = total, i
+		end
+	end
+	ModeBoard.setVotes(totals, leading)
+	local boss = Bosses.byId[nextBoss]
+	ModeBoard.setBoss(boss.name, boss.title)
+end
+
+local function chosenMode(): string
+	local totals = Arenas.tally(MODES, modeVotes)
+	for _, total in totals do
+		if total > 0 then
+			return Arenas.winner(MODES, totals, (roundSeed * 0.377) % 1)
+		end
+	end
+	return "quick"
+end
+
+local function scanModePads()
+	local changed = false
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		local pad = if root and root:IsA("BasePart") then ModeBoard.padAt(root.Position) else nil
+		if pad ~= modePadVotes[player.UserId] then
+			modePadVotes[player.UserId] = pad
+			if pad then
+				modeVotes[player.UserId] = { index = pad, weight = 1 }
+			end
+			changed = true
+		end
+	end
+	if changed then
+		showModes()
+		broadcastState()
+	end
+end
+
 local function newLobby()
 	roundSeed += 1
+	table.clear(modeVotes)
+	table.clear(modePadVotes)
+	refreshChallenge()
+	showModes()
 	options = Arenas.voteOptions(roundSeed * 7 + 3, LobbyBuilder.PAD_COUNT)
 	table.clear(votes)
 	table.clear(padVotes)
@@ -272,6 +386,15 @@ end
 
 local function launch(slots: { MatchRunner.Slot }, countdown: number)
 	local levels, gentle = botSetup(slots)
+	local extra: { [string]: any } = launchExtra or {}
+	if extra.botLevel then
+		for i in levels do
+			levels[i] = extra.botLevel
+		end
+	end
+	if extra.boss or extra.botLevel then
+		gentle = false -- raid helpers and challenge opponents play at full strength
+	end
 	runner = MatchRunner.new({
 		slots = slots,
 		botLevel = BOT_LEVEL,
@@ -280,7 +403,11 @@ local function launch(slots: { MatchRunner.Slot }, countdown: number)
 		botStocks = if gentle then 2 else nil,
 		seed = roundSeed,
 		arena = arenaId,
-		countdown = countdown,
+		countdown = if extra.boss and countdown == INTRO_COUNTDOWN then RAID_COUNTDOWN else countdown,
+		boss = extra.boss,
+		mutators = extra.mutators,
+		teams = extra.teams,
+		stocks = extra.stocks,
 	})
 	table.clear(rematchVotes)
 	lastSnapshotFrame = 0
@@ -300,6 +427,60 @@ local function startMatch()
 		end
 	end
 	if #slots == 0 then
+		return
+	end
+	-- Modes
+	mode = chosenMode()
+	launchExtra = nil
+	if mode == "raid" then
+		-- Boss-Raid: the players' fighters, bot helpers up to four, the next boss in the template order.
+		raidRound += 1
+		local boss = Bosses.forRound(raidRound)
+		nextBoss = Bosses.forRound(raidRound + 1)
+		arenaId = Bosses.arenaFor(boss)
+		ArenaBuilder.build(arenaId)
+		local pool = table.clone(Visuals.SLICE_FIGHTERS)
+		local k = 0
+		while #slots < SLOTS do
+			k += 1
+			table.insert(slots, { userId = nil, fighterId = pool[(roundSeed + k) % #pool + 1] })
+		end
+		launchExtra = { boss = boss }
+		launch(slots, INTRO_COUNTDOWN)
+		return
+	elseif mode == "daily" then
+		-- Daily Challenge: everyone plays the given fighter against the given opponents (the humans share a team
+		-- in the 1-gegen-2 goal; players beyond the free slots watch this round).
+		refreshChallenge()
+		local ch = challenge
+		local out: { MatchRunner.Slot } = {}
+		for _, slot in slots do
+			if #out < SLOTS - #ch.opponents then
+				table.insert(out, { userId = slot.userId, fighterId = ch.fighter })
+			end
+		end
+		local humans = #out
+		for _, id in ch.opponents do
+			table.insert(out, { userId = nil, fighterId = id })
+		end
+		local teams: { number }? = nil
+		if ch.teams then
+			local list = {}
+			for i in out do
+				list[i] = if i <= humans then 1 else 2
+			end
+			teams = list
+		end
+		arenaId = ch.arena
+		ArenaBuilder.build(arenaId)
+		launchExtra = {
+			mutators = ch.mutators,
+			teams = teams,
+			stocks = ch.stocks,
+			botLevel = ch.botLevel,
+			challengeDay = ch.day,
+		}
+		launch(out, INTRO_COUNTDOWN)
 		return
 	end
 	local totals = Arenas.tally(options, votes)
@@ -338,8 +519,64 @@ local function places(current: MatchRunner.Runner): { [number]: number }
 	return place
 end
 
+-- Modes: a finished raid pays per boss (Meta/ModeRewards.applyRaid) instead of the match reward.
+local function rewardRaid(current: MatchRunner.Runner, raid: BossFight.Fight)
+	local summary = BossFight.summary(raid)
+	for i, slot in current.slots do
+		local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
+		local hero = BossFight.heroOf(raid, i)
+		if player and hero then
+			local extra: { [string]: any } = {}
+			PlayerData.update(player, function(profile)
+				local reward, details = ModeRewards.applyRaid(profile, slot.fighterId, raid.bossId, {
+					won = summary.victory,
+					phase = summary.phase,
+					damage = hero.damage,
+					downs = hero.downs,
+				})
+				extra.reward = reward
+				extra.raid = {
+					boss = raid.bossId,
+					victory = summary.victory,
+					firstWin = details.firstWin,
+					title = details.title,
+				}
+			end, extra)
+		end
+	end
+end
+
+-- Modes: the Daily Challenge pays its streak coins on top of the match reward, once per UTC day.
+local function dailyBonus(profile: Profile.Profile, current: MatchRunner.Runner, i: number, extra: { [string]: any })
+	local day = if launchExtra then launchExtra.challengeDay else nil
+	if day == nil then
+		return
+	end
+	local sim = current.sim
+	local f = sim.fighters[i]
+	local result = sim.result
+	local winner = if result and result > 0 then sim.fighters[result] else nil
+	local won = winner ~= nil and winner.team == f.team
+	local ch = DailyChallenge.forDay(day)
+	local done = DailyChallenge.check(ch, { won = won, seconds = sim.elapsed, stocksLost = f.stocksLost })
+	if done then
+		local coins, streak = ModeRewards.claimDaily(profile, day)
+		if extra.reward and coins > 0 then
+			extra.reward.coins += coins
+		end
+		extra.challenge = { done = true, coins = coins, streak = streak, already = coins == 0 }
+	else
+		extra.challenge = { done = false, already = ModeRewards.dailyDone(profile, day) }
+	end
+end
+
 -- Saves XP, coins and unlocks for every player in the match and tells each one what they got.
 local function rewardPlayers(current: MatchRunner.Runner)
+	local raid = current.raid
+	if raid then
+		rewardRaid(current, raid)
+		return
+	end
 	local place = places(current)
 	for i, slot in current.slots do
 		local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
@@ -357,6 +594,7 @@ local function rewardPlayers(current: MatchRunner.Runner)
 			local extra: { [string]: any } = {}
 			PlayerData.update(player, function(profile)
 				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats)
+				dailyBonus(profile, current, i, extra)
 			end, extra)
 		end
 	end
@@ -379,12 +617,22 @@ local function finishMatch(current: MatchRunner.Runner)
 	phase = "results"
 	resultsTimer = RESULTS_SECONDS
 	table.clear(rematchVotes)
-	RemoteHub.fireAll("MatchEvent", { { type = "results", winner = current.sim.result, stats = stats } })
+	RemoteHub.fireAll("MatchEvent", {
+		{
+			type = "results",
+			winner = current.sim.result,
+			stats = stats,
+			mode = mode,
+			raid = if current.raid then BossFight.summary(current.raid) else nil,
+		},
+	})
 	broadcastState()
 end
 
 local function toLobby()
 	runner = nil
+	mode = "quick"
+	launchExtra = nil
 	phase = "lobby"
 	table.clear(rematchVotes)
 	newLobby()
@@ -456,6 +704,7 @@ local function onHeartbeat(dt: number)
 		if voteScan <= 0 then
 			voteScan = VOTE_SCAN
 			scanPads()
+			scanModePads()
 		end
 		local ready, total = readyCount()
 		if ready > 0 then
@@ -501,9 +750,19 @@ local function onHeartbeat(dt: number)
 			if current.sim.frame % 6 < SNAPSHOT_EVERY then
 				RemoteHub.fireAll("Items", current:items())
 			end
+			if current.sim.frame % MODE_STATE_EVERY < SNAPSHOT_EVERY then
+				local state = current:modeState()
+				if state then
+					RemoteHub.fireAll("BossState", state)
+				end
+			end
 		end
 		if current.sim.result ~= nil then
 			RemoteHub.fireAll("Snapshot", current:snapshot())
+			local state = current:modeState()
+			if state then
+				RemoteHub.fireAll("BossState", state)
+			end
 			finishMatch(current)
 		end
 	elseif phase == "results" then
@@ -559,6 +818,14 @@ function MatchService.start()
 		broadcastState()
 		settleResults(false)
 	end)
+	RemoteHub.on("VoteMode", function(player, id: string)
+		local index = table.find(MODES, id)
+		if phase == "lobby" and index then
+			modeVotes[player.UserId] = { index = index, weight = 1 }
+			showModes()
+			broadcastState()
+		end
+	end)
 	RemoteHub.on("VoteArena", function(player, id: string)
 		local index = table.find(options, id)
 		if phase == "lobby" and index then
@@ -581,12 +848,15 @@ function MatchService.start()
 		selections[player.UserId] = nil
 		votes[player.UserId] = nil
 		padVotes[player.UserId] = nil
+		modeVotes[player.UserId] = nil
+		modePadVotes[player.UserId] = nil
 		local current = runner
 		if current then
 			current:dropPlayer(player.UserId)
 		end
 	end)
 	LobbyBuilder.build()
+	ModeBoard.build(LobbyBuilder.model())
 	ArenaBuilder.build(Visuals.SLICE_ARENA)
 	ArenaBuilder.applyLighting(ArenaThemes.neon_alley)
 	newLobby()

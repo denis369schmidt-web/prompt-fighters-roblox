@@ -9,6 +9,8 @@ export type Theme = {
 	weather: string, -- rain, snow, embers, dust, fireflies
 	tint: { number }, -- r, g, b in 0..1 for ambient light and fog
 	variant: string?, -- graffiti, ruins, statues, storm, jungle, frozen, molten, future
+	raid: boolean?, -- Boss-Raid arena (not votable): ArenaBuilder adds the boss sanctum backdrop
+	name: string?, -- display name for arenas outside Data/Arenas (raid arenas)
 }
 
 return {
@@ -162,5 +164,26 @@ return {
 		weather = "embers",
 		tint = { 0.65, 0.3, 0.2 },
 		variant = "molten",
+	},
+	-- Boss-Raid arenas (Data/Bosses.arenaFor), not in the vote or the shop.
+	raid_hell = {
+		motif = "foundry",
+		trim = "#DC2626",
+		accent = "#F59E0B",
+		weather = "embers",
+		tint = { 0.7, 0.28, 0.22 },
+		variant = "molten",
+		raid = true,
+		name = "HÖLLENSCHLUND",
+	},
+	raid_heaven = {
+		motif = "temple",
+		trim = "#FDE68A",
+		accent = "#93C5FD",
+		weather = "fireflies",
+		tint = { 0.85, 0.82, 0.95 },
+		variant = "statues",
+		raid = true,
+		name = "HIMMELSSPHÄREN",
 	},
 } :: { [string]: Theme }

@@ -167,8 +167,8 @@ local function explode(sim: any, pr: Projectile, contacts: { Contact })
 	end
 	for ti, t in sim.fighters do
 		if ti ~= pr.owner and not sim:isAlly(pr.owner, ti) and t.state ~= "Defeated" and t.state ~= "Dazed" then
-			local dx, dy = t.x - pr.x, t.y + BODY_H * 0.45 - pr.y
-			if math.sqrt(dx * dx + dy * dy) <= radius then
+			local dx, dy = t.x - pr.x, t.y + (t.hurtH or BODY_H) * 0.45 - pr.y
+			if math.sqrt(dx * dx + dy * dy) <= radius + (t.hurtW or 0) * 0.5 then
 				table.insert(contacts, {
 					from = pr.owner,
 					to = ti,
@@ -468,9 +468,9 @@ function Projectiles.update(sim: any, dt: number, contacts: { Contact })
 				then
 					continue
 				end
-				local touch = math.abs(t.x - pr.x) <= size
+				local touch = math.abs(t.x - pr.x) <= size + (t.hurtW or 0) * 0.5
 					and pr.y >= t.y - 0.3 - size * 0.5
-					and pr.y <= t.y + BODY_H + size * 0.5
+					and pr.y <= t.y + (t.hurtH or BODY_H) + size * 0.5
 				if d.column then
 					-- Orbital strike: the beam hits everything standing in its column.
 					touch = math.abs(t.x - pr.x) <= size and t.y >= pr.y - 0.6 and t.y <= pr.y + num(d, "height", 9)

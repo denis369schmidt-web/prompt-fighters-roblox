@@ -5,7 +5,8 @@
 --
 -- Signature specials run in Combat/Signature, their projectiles in Combat/Projectiles.
 -- Arena items, weapons and power-ups run in Combat/Items.
--- Not ported yet (later phases): hazards, mutators, bosses.
+-- Mutators run in Combat/MutatorRules and the Boss-Raid in Combat/BossFight, both on top of this simulation.
+-- Not ported yet (later phases): hazards.
 
 local Arena = require(script.Parent.Arena)
 local Input = require(script.Parent.Input)
@@ -165,6 +166,10 @@ export type FighterState = {
 	prevAxis: number,
 	tokens: { { key: string, time: number } },
 
+	-- Boss-Raid: a bigger hurtbox (width, height in meters) for the boss's stand-in fighter (Combat/BossFight)
+	hurtW: number?,
+	hurtH: number?,
+
 	-- statistics for results and quests
 	hits: number,
 	kos: number,
@@ -187,6 +192,7 @@ export type MatchConfig = {
 	countdown: number?,
 	finishers: boolean?,
 	items: boolean?, -- arena items and drops (default on)
+	manualOutcome: boolean?, -- the mode decides the result itself (Boss-Raid): no KO/time-up outcome here
 }
 
 export type Simulation = {
@@ -213,9 +219,11 @@ export type Simulation = {
 	finishWinner: number,
 	finishLoser: number,
 	result: number?, -- nil while running; winner index, or -1 for a draw
+	manualOutcome: boolean,
 	tick: (self: Simulation, commands: { Command }) -> (),
 	nearestOpponent: (self: Simulation, index: number) -> number?,
 	isAlly: (self: Simulation, a: number, b: number) -> boolean,
+	addFighter: (self: Simulation, fighterId: string, team: number, stocks: number, isBot: boolean) -> number,
 	snapshot: (self: Simulation) -> { FighterSnapshot },
 }
 
@@ -379,6 +387,7 @@ function Sim.new(config: MatchConfig): Simulation
 		finishWinner = 0,
 		finishLoser = 0,
 		result = nil,
+		manualOutcome = config.manualOutcome == true,
 	}, Sim)
 	for i, fighterId in config.fighters do
 		local team = if config.teams then config.teams[i] else i
@@ -389,6 +398,13 @@ function Sim.new(config: MatchConfig): Simulation
 		Items.setup(self)
 	end
 	return (self :: any) :: Simulation
+end
+
+-- Adds one more fighter after creation (the Boss-Raid's boss stand-in); returns its index.
+function Sim.addFighter(self: Simulation, fighterId: string, team: number, stocks: number, isBot: boolean): number
+	local index = #self.fighters + 1
+	table.insert(self.fighters, newFighter(index, fighterId, team, stocks, isBot))
+	return index
 end
 
 local function moveToward(value: number, target: number, delta: number): number
@@ -927,6 +943,12 @@ end
 -- Hitbox test: explicit move boxes (relative to the attacker's feet) against the target body (feet to +1.6 m).
 local function touches(attacker: FighterState, target: FighterState, a: Ability): boolean
 	local forward = (target.x - attacker.x) * attacker.facing
+	local half = (target.hurtW or 0) * 0.5
+	if half > 0 then
+		-- A wide body (the raid boss) is hit at its near edge.
+		local d = target.x - attacker.x
+		forward = if math.abs(d) <= half then 0 else (d - sign(d) * half) * attacker.facing
+	end
 	if a.yMin and a.yMax then
 		local xMin = a.xMin or -HITBOX_BACK_REACH
 		if a.allAround then
@@ -938,9 +960,13 @@ local function touches(attacker: FighterState, target: FighterState, a: Ability)
 		end
 		local lo = attacker.y + a.yMin
 		local hi = attacker.y + a.yMax
-		return target.y <= hi and target.y + BODY_HEIGHT >= lo
+		return target.y <= hi and target.y + (target.hurtH or BODY_HEIGHT) >= lo
 	end
-	if math.abs(target.y - attacker.y) > 1.5 then
+	if target.hurtH then
+		if attacker.y < target.y - 1.5 or attacker.y > target.y + target.hurtH then
+			return false
+		end
+	elseif math.abs(target.y - attacker.y) > 1.5 then
 		return false
 	end
 	if a.allAround then
@@ -1819,7 +1845,7 @@ local function startSuddenDeath(self: Simulation, leaders: { number })
 end
 
 local function checkOutcome(self: Simulation, eliminatedNow: number?)
-	if self.result ~= nil then
+	if self.result ~= nil or self.manualOutcome then
 		return
 	end
 	local alive, teamCount = aliveTeams(self)

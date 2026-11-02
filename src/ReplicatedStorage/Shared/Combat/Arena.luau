@@ -63,6 +63,13 @@ Arena.LAYOUTS = {
 		p("perch_left", -5.6, -3.8, 2.8),
 		p("perch_right", 3.8, 5.6, 2.8),
 	},
+	-- Boss-Raid: an open middle for the boss, two side ledges and high perches to dodge ground waves.
+	raid = {
+		p("wing_left", -8.8, -5.6, 1.7),
+		p("wing_right", 5.6, 8.8, 1.7),
+		p("perch_left", -9.3, -7.3, 3.6),
+		p("perch_right", 7.3, 9.3, 3.6),
+	},
 } :: { [string]: { Platform } }
 
 -- Layout per arena id (Data/Arenas); every other arena plays "classic".
@@ -84,6 +91,8 @@ Arena.ARENA_LAYOUT = {
 	rain_roof = "low",
 	storm_roof = "low",
 	ruined_city = "low",
+	raid_hell = "raid",
+	raid_heaven = "raid",
 } :: { [string]: string }
 
 function Arena.platformsFor(arenaId: string): { Platform }

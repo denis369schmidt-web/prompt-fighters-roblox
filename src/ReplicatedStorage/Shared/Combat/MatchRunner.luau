@@ -8,6 +8,8 @@
 -- when packets and ticks don't line up.
 
 local Bot = require(script.Parent.Bot)
+local BossFight = require(script.Parent.BossFight)
+local MutatorRules = require(script.Parent.MutatorRules)
 local Items = require(script.Parent.Items)
 local Projectiles = require(script.Parent.Projectiles)
 local Input = require(script.Parent.Input)
@@ -29,6 +31,13 @@ export type RunnerConfig = {
 	botLevels: { [number]: number }?, -- per-slot bot level (else botLevel)
 	gentle: boolean?, -- a new player's first match: soft bots (Bot.setGentle)
 	botStocks: number?, -- stocks for bot slots (else stocks)
+	-- modes (MatchService): Boss-Raid boss, mutators (Daily Challenge), teams (e.g. 1 vs 2), items on/off
+	boss: string?,
+	bossLives: number?,
+	bossHpScale: number?,
+	mutators: { string }?,
+	teams: { number }?,
+	items: boolean?,
 }
 
 export type Runner = {
@@ -38,6 +47,8 @@ export type Runner = {
 	held: { [number]: { mask: number, axis: number } },
 	latched: { [number]: number },
 	accumulator: number,
+	raid: BossFight.Fight?,
+	mutators: MutatorRules.State?,
 	setInput: (self: Runner, slot: number, mask: number, axis: number) -> (),
 	slotOf: (self: Runner, userId: number) -> number?,
 	dropPlayer: (self: Runner, userId: number) -> (),
@@ -45,6 +56,7 @@ export type Runner = {
 	snapshot: (self: Runner) -> { any },
 	shots: (self: Runner) -> { number },
 	items: (self: Runner) -> { number },
+	modeState: (self: Runner) -> { any }?,
 }
 
 local MatchRunner = {}
@@ -80,6 +92,10 @@ function MatchRunner.new(config: RunnerConfig): Runner
 			arena = config.arena,
 			timeLimit = config.timeLimit,
 			countdown = config.countdown,
+			teams = config.teams,
+			items = config.items,
+			finishers = if config.boss then false else nil,
+			manualOutcome = config.boss ~= nil,
 		}),
 		slots = config.slots,
 		brain = Bot.new(config.botLevel or 4, seed + 101),
@@ -100,6 +116,17 @@ function MatchRunner.new(config: RunnerConfig): Runner
 				self.sim.fighters[i].lives = config.botStocks
 			end
 		end
+	end
+	if config.boss then
+		(self :: any).raid = BossFight.new(self.sim, config.boss, {
+			heroes = #config.slots,
+			lives = config.bossLives,
+			seed = seed,
+			hpScale = config.bossHpScale,
+		})
+	end
+	if config.mutators and #config.mutators > 0 then
+		(self :: any).mutators = MutatorRules.apply(self.sim, config.mutators, seed)
 	end
 	return (self :: any) :: Runner
 end
@@ -138,7 +165,12 @@ local function commandsFor(self: Runner): { Command }
 	local commands = {}
 	for i, slot in self.slots do
 		if slot.userId == nil then
-			commands[i] = self.brain:command(self.sim, i)
+			local cmd = self.brain:command(self.sim, i)
+			local raid = self.raid
+			if raid then
+				cmd = BossFight.steer(raid, i, cmd, self.brain:levelOf(i))
+			end
+			commands[i] = cmd
 		else
 			local held = self.held[i]
 			local mask = bit32.bor(if held then held.mask else 0, self.latched[i] or 0)
@@ -156,7 +188,18 @@ function MatchRunner.step(self: Runner, dt: number): ({ Simulation.Event }, numb
 	local ticks = 0
 	while self.accumulator >= STEP - 1e-9 and self.sim.result == nil do
 		self.accumulator -= STEP
+		local raid = self.raid
+		if raid then
+			BossFight.beforeTick(raid)
+		end
 		self.sim:tick(commandsFor(self))
+		if raid then
+			BossFight.afterTick(raid)
+		end
+		local mutators = self.mutators
+		if mutators then
+			MutatorRules.afterTick(mutators, self.sim)
+		end
 		ticks += 1
 		for _, e in self.sim.events do
 			table.insert(events, e)
@@ -177,10 +220,14 @@ end
 function MatchRunner.snapshot(self: Runner): { any }
 	local sim = self.sim
 	local list: { { any } } = {}
+	local raidWon = self.raid ~= nil and (self.raid :: BossFight.Fight).result == "victory"
 	for i, s in sim:snapshot() do
+		if i > #self.slots then
+			break -- the raid boss's stand-in is drawn from the BossState remote, not as a fighter
+		end
 		-- Display-only states for the renderer: the winner's victory pose, a bot's taunt.
-		local state = s.state
-		if sim.result == i then
+		local state: string = s.state
+		if sim.result == i or (raidWon and s.state ~= "Defeated") then
 			state = "Victory"
 		elseif state == "Ready" and s.grounded and self.brain:emoting(i) then
 			state = "Taunt"
@@ -254,7 +301,34 @@ function MatchRunner.shots(self: Runner): { number }
 		table.insert(out, round2(pr.y))
 		table.insert(out, round2(pr.sizeNow or Projectiles.num(pr.spec, "size", 0.5)))
 	end
+	local raid = self.raid
+	if raid then
+		-- Boss projectiles share the id space (sim.projectileSerial) and the cap.
+		local room = MatchRunner.MAX_SHOTS - #out // 4
+		for k, shot in BossFight.shotList(raid) do
+			if k > room then
+				break
+			end
+			table.insert(out, shot.id)
+			table.insert(out, round2(shot.x))
+			table.insert(out, round2(shot.y))
+			table.insert(out, round2(shot.size))
+		end
+	end
 	return out
+end
+
+-- Mode state for the client (BossState remote, unreliable, 15 Hz): { boss (BossFight.encode) or false,
+-- mutator bomb zones }. nil when the match has neither.
+function MatchRunner.modeState(self: Runner): { any }?
+	local raid, mutators = self.raid, self.mutators
+	if raid == nil and (mutators == nil or not mutators.bombs) then
+		return nil
+	end
+	return {
+		if raid then BossFight.encode(raid) else false,
+		if mutators then MutatorRules.zones(mutators) else {},
+	}
 end
 
 -- Item state for the renderer (Items.encode), sent unreliable at 10 Hz.

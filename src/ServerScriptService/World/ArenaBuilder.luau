@@ -1607,6 +1607,65 @@ function ArenaBuilder.applyLighting(theme: ArenaThemes.Theme)
 	cc.Parent = Lighting
 end
 
+-- Boss-Raid sanctum on top of the motif: a giant broken halo behind the stage, two shattered columns and a sigil
+-- on the stage floor where the boss stands. About 40 parts.
+local function raidSanctum(ctx: Ctx)
+	local holder = Instance.new("Model")
+	holder.Name = "RaidSanctum"
+	holder.Parent = ctx.model
+	local stone = ctx.trim:Lerp(Color3.fromRGB(70, 66, 74), 0.7)
+	local center = at(0, 34, WALL_Z + 6)
+	local radius = 30
+	local segments = 18
+	for k = 0, segments - 1 do
+		if k ~= 4 and k ~= 13 then -- two gaps: the halo is broken
+			local a = (k + 0.5) / segments * math.pi * 2
+			local p = center + Vector3.new(math.cos(a) * radius, math.sin(a) * radius, 0)
+			part(
+				holder,
+				"HaloSegment",
+				Vector3.new(11, 2.2, 1.6),
+				CFrame.new(p) * CFrame.Angles(0, 0, a + math.pi / 2),
+				ctx.trim,
+				Enum.Material.Neon
+			).Transparency =
+				0.15
+		end
+	end
+	local core = glowBall(ctx, "HaloCore", center, 7, ctx.accent, 60)
+	core.Parent = holder
+	core.Transparency = 0.35
+	for _, side in { -1, 1 } do
+		local x = side * 46
+		part(holder, "ColumnBase", Vector3.new(9, 3, 9), at(x, -1.5, WALL_Z + 8), stone, Enum.Material.Slate)
+		part(holder, "Column", Vector3.new(6, 26, 6), at(x, 13, WALL_Z + 8), stone, Enum.Material.Marble)
+		part(
+			holder,
+			"ColumnBroken",
+			Vector3.new(6, 6, 6),
+			CFrame.new(at(x + side * 1.5, 28.5, WALL_Z + 8)) * CFrame.Angles(0.2, 0, side * 0.45),
+			stone,
+			Enum.Material.Marble
+		)
+		part(holder, "ColumnRune", Vector3.new(6.3, 0.6, 6.3), at(x, 6, WALL_Z + 8), ctx.accent, Enum.Material.Neon)
+		local brazier = glowBall(ctx, "Brazier", at(x, 33, WALL_Z + 8), 3, ctx.trim, 40)
+		brazier.Parent = holder
+	end
+	-- Sigil on the stage: rings of neon where the boss lands.
+	for k, r in { 15, 11, 6 } do
+		local ring = part(
+			holder,
+			"Sigil",
+			Vector3.new(0.12, r * 2, r * 2),
+			CFrame.new(world(0, 0) + Vector3.new(0, 0.02 * k, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+			if k == 2 then ctx.accent else ctx.trim,
+			Enum.Material.Neon,
+			Enum.PartType.Cylinder
+		)
+		ring.Transparency = 0.55 + k * 0.1
+	end
+end
+
 --------------------------------------------------------------------------------------------------------------------
 
 -- Every arena id that has a look (all of Data/Arenas).
@@ -1631,12 +1690,15 @@ function ArenaBuilder.build(arenaId: string): Model
 		theme = theme,
 		trim = Color3.fromHex(theme.trim),
 		accent = Color3.fromHex(theme.accent),
-		name = if info then info.name else arenaId,
+		name = if info then info.name else (theme.name or arenaId),
 		rng = Random.new(#arenaId * 131 + string.byte(arenaId, 1)),
 	}
 	buildStage(ctx, arenaId, STYLES[theme.motif] or STYLES.city_street)
 	local motif = MOTIFS[theme.motif] or MOTIFS.city_street
 	motif(ctx)
+	if theme.raid then
+		raidSanctum(ctx)
+	end
 	ArenaDressing.dress({
 		model = model,
 		theme = theme,
