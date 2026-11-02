@@ -277,7 +277,7 @@ local function launch(slots: { MatchRunner.Slot }, countdown: number)
 		botLevel = BOT_LEVEL,
 		botLevels = levels,
 		gentle = gentle,
-		botStocks = if gentle then 2 else nil,
+		botStocks = if gentle then 1 else nil, -- one stock less than the player (FFA_STOCKS)
 		seed = roundSeed,
 		arena = arenaId,
 		countdown = countdown,

@@ -124,7 +124,7 @@ function Knockback.attack(
 	local kind = if superHit then 1.35 elseif isSpecial then 1.15 else 1.0
 	local w = math.clamp(weight, 0.82, 1.45)
 	local impulse = (push * 4 + growth * 3.75) * kind / w
-	impulse = math.clamp(impulse * (kbTakenMult or 1) * Knockback.vitalityMult(vitality), 0.9, 19)
+	impulse = math.clamp(impulse * (kbTakenMult or 1) * Knockback.vitalityMult(vitality), 0.9, Constants.MAX_LAUNCH)
 
 	local rad = math.rad(deg)
 	local lx, ly = direction * math.cos(rad), math.sin(rad)
