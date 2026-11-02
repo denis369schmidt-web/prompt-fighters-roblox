@@ -231,17 +231,18 @@ describe("Bot play", function()
 			seed = 12,
 			countdown = 0,
 			gentle = true,
-			botStocks = 2,
+			botStocks = 1,
 			botLevels = { [2] = 1, [3] = 1, [4] = 1 },
 		})
-		expect(r.sim.fighters[2].lives).toBe(2)
-		expect(r.sim.fighters[1].lives).toBe(3)
+		-- Four fighters play with FFA_STOCKS (2); the gentle bots get one less.
+		expect(r.sim.fighters[2].lives).toBe(1)
+		expect(r.sim.fighters[1].lives).toBe(2)
 		expect(r.brain:levelOf(3)).toBe(1)
 		-- An idle human still survives a long while against three gentle bots.
 		for _ = 1, 60 * 30 do
 			r:step(1 / 60)
 		end
-		expect(r.sim.fighters[1].lives >= 2).toBe(true)
+		expect(r.sim.fighters[1].lives >= 1).toBe(true)
 	end)
 end)
 

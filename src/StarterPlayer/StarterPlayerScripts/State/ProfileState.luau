@@ -29,6 +29,7 @@ export type View = {
 	vouchers: { [string]: number }?,
 	passes: { string }?, -- owned game pass ids
 	starterOffer: boolean?, -- starter pack still offered (72 h window, not bought)
+	settings: { [string]: boolean }?, -- settings panel switches (Meta/Profile.Settings)
 }
 
 local ProfileState = {

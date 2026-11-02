@@ -17,6 +17,7 @@ local Profile = require(ReplicatedStorage.Shared.Meta.Profile)
 local PlayerData = require(script.Parent.Parent.Data.PlayerData)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
+local Analytics = require(script.Parent.Parent.Analytics.Analytics)
 
 local PromptService = {}
 -- Name of the ProximityPrompt on the lobby's terminal anchor; the client opens the terminal UI when it fires.
@@ -91,6 +92,7 @@ local function submit(player: Player, raw: string): { [string]: any }
 	end
 	local result = Registry.fromText(safe)
 	remember(player, result)
+	Analytics.promptCreated(player)
 	-- The newest creation stands on the lobby showcase for everyone (only its id is used, never the text).
 	pcall(LobbyBuilder.setFeatured, result.id)
 	return { ok = true, fighter = result.summary, prompt = safe }

@@ -4,9 +4,11 @@
 -- even when the frame rate is above 60.
 --
 -- Keyboard: A/D or arrows move, W up, S down, Space jump, J attack, K special, L or Shift shield, U grab,
---           I smash (attack + direction).
--- Gamepad:  left stick, A jump, X attack, B special, L1/R1 shield, R2 grab, right stick smash.
+--           I smash (attack + direction), O dodge.
+-- Gamepad:  left stick, A jump, X attack, B special, L1/R1 shield, R2 grab, L2 dodge, right stick smash.
 -- Touch:    left half is a floating stick, buttons on the right (see UI/TouchButtons).
+-- Dodge is a short shield tap: with a direction it rolls, without one it spot-dodges (shield + down) on the
+-- ground and air-dodges in the air. Super = special with a full meter; signature moves are specials.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -31,8 +33,12 @@ local virtual = {
 	block = false,
 	grab = false,
 	smash = false,
+	dodge = false,
 }
 InputController.virtual = virtual
+
+-- Ticks (60 Hz) a dodge holds the shield; a fresh shield press is what starts the dodge in the simulation.
+local DODGE_TICKS = 5
 
 local KEY_ACTIONS: { [Enum.KeyCode]: string } = {
 	[Enum.KeyCode.Space] = "jump",
@@ -42,6 +48,8 @@ local KEY_ACTIONS: { [Enum.KeyCode]: string } = {
 	[Enum.KeyCode.LeftShift] = "block",
 	[Enum.KeyCode.U] = "grab",
 	[Enum.KeyCode.I] = "smash",
+	[Enum.KeyCode.O] = "dodge",
+	[Enum.KeyCode.ButtonL2] = "dodge",
 	[Enum.KeyCode.ButtonA] = "jump",
 	[Enum.KeyCode.ButtonX] = "standard",
 	[Enum.KeyCode.ButtonB] = "special",
@@ -57,6 +65,17 @@ end
 local gamepadStick = Vector2.zero
 local gamepadSmash = Vector2.zero
 local pressedButtons: { [string]: boolean } = {}
+local dodgeTicks = 0 -- shield held for a dodge (counts down per sent packet)
+local dodgeDown = false -- this dodge is a spot dodge (adds "down")
+local dodgeWasHeld = false
+
+-- Is the local fighter on the ground (latest snapshot)?
+local function grounded(): boolean
+	local snap = MatchState.snapshot
+	local slot = MatchState.mySlot
+	local f = if snap and slot then snap.fighters[slot] else nil
+	return f ~= nil and f.grounded
+end
 
 local function readHeld(): { [string]: any }
 	local move = 0
@@ -80,6 +99,21 @@ local function readHeld(): { [string]: any }
 	}
 	for _, action in { "jump", "standard", "special", "block", "grab" } do
 		held[action] = pressedButtons[action] == true or (virtual :: any)[action] == true
+	end
+	-- Dodge: a new press starts a short shield tap (see header).
+	local dodgeHeld = pressedButtons.dodge == true or virtual.dodge
+	if dodgeHeld and not dodgeWasHeld and dodgeTicks <= 0 then
+		dodgeTicks = DODGE_TICKS
+		dodgeDown = math.abs(held.move) < 0.6 and grounded()
+	end
+	dodgeWasHeld = dodgeHeld
+	if dodgeTicks > 0 then
+		if dodgeTicks == DODGE_TICKS and held.block then
+			held.block = false -- release a held shield for one tick so the dodge gets a fresh press
+		else
+			held.block = true
+		end
+		held.down = held.down or dodgeDown
 	end
 	if held.smash then
 		-- Right stick / smash button: attack in that direction.
@@ -138,6 +172,9 @@ function InputController.start()
 			return
 		end
 		sinceSend = math.max(0, sinceSend - SEND_INTERVAL)
+		if dodgeTicks > 0 then
+			dodgeTicks -= 1
+		end
 		local cmd = Input.idle()
 		cmd.move = held.move
 		cmd.up, cmd.down, cmd.block = held.up, held.down, held.block

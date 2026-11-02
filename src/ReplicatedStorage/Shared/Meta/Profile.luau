@@ -5,6 +5,7 @@
 -- No Roblox services here: the server (Server/Data/PlayerData) loads and saves, tests call these directly.
 
 local Cosmetics = require(script.Parent.Parent.Data.Cosmetics)
+local Constants = require(script.Parent.Parent.Data.Constants)
 local Fighters = require(script.Parent.Parent.Data.Fighters)
 local PromptCode = require(script.Parent.Parent.Prompt.Code)
 local Progression = require(script.Parent.Parent.Data.Progression)
@@ -34,6 +35,17 @@ export type Profile = {
 	items: { [string]: boolean }, -- "arena:<id>" / "weapon:<id>" from bundles, for systems that come later
 	entitlements: { [string]: number }, -- bought counts: "once:<product>", seasonPremium, seasonTiers, ...
 	firstSeen: number, -- os.time() of the first join (starter pack window)
+	weekKey: number, -- week (Meta/Leaderboards.weekKey) that weekWins counts
+	weekWins: number, -- wins in that week (weekly leaderboard)
+	groupBonus: boolean, -- the one-time group-join coin bonus was paid
+	settings: Settings,
+}
+
+-- Player options from the settings panel (UI/Settings), applied on the client.
+export type Settings = {
+	reduceShake: boolean, -- Kamera-Wackeln reduzieren
+	sound: boolean, -- Sound an/aus
+	lowParticles: boolean, -- Grafik: weniger Partikel
 }
 
 export type MatchStats = {
@@ -57,12 +69,17 @@ export type MatchReward = {
 
 local Profile = {}
 
--- v2: promptFighters. v3: cosmetics, equipped*, purchases, vouchers, choices, items, entitlements, firstSeen.
+-- v2: promptFighters. v3: cosmetics, equipped*, purchases, vouchers, choices, items, entitlements, firstSeen
+-- (shop) and weekKey, weekWins, groupBonus, settings (leaderboards, settings panel).
 Profile.VERSION = 3
 -- Receipt ids kept for idempotency (oldest dropped first). Roblox retries only receipts we never granted.
 Profile.MAX_PURCHASES = 200
 Profile.START_COINS = 150
 Profile.PROMPT_HISTORY = 3
+
+function Profile.defaultSettings(): Settings
+	return { reduceShake = false, sound = true, lowParticles = false }
+end
 
 function Profile.new(): Profile
 	return {
@@ -88,6 +105,10 @@ function Profile.new(): Profile
 		items = {},
 		entitlements = {},
 		firstSeen = 0,
+		weekKey = 0,
+		weekWins = 0,
+		groupBonus = false,
+		settings = Profile.defaultSettings(),
 	}
 end
 
@@ -155,6 +176,16 @@ function Profile.migrate(data: any): Profile
 	if plate == nil or plate.kind ~= "plate" or not fresh.cosmetics[fresh.equippedPlate] then
 		fresh.equippedPlate = ""
 	end
+	-- Settings: known keys with the right type survive, the rest falls back to the defaults.
+	local settings = Profile.defaultSettings()
+	local savedSettings = if type(data.settings) == "table" then data.settings else {}
+	for key, default in settings :: any do
+		if type(savedSettings[key]) == type(default) then
+			(settings :: any)[key] = savedSettings[key]
+		end
+	end
+	fresh.settings = settings
+	fresh.weekWins = math.max(0, math.floor(fresh.weekWins))
 	fresh.version = Profile.VERSION
 	fresh.level = math.max(1, math.floor(fresh.level))
 	fresh.coins = math.max(0, math.floor(fresh.coins))
@@ -249,6 +280,35 @@ end
 
 function Profile.equippedKoEffect(profile: Profile): string?
 	return if profile.equippedKo ~= "" then profile.equippedKo else nil
+end
+
+-- Counts a win for the weekly leaderboard; a new week starts again at 0.
+function Profile.addWeeklyWin(profile: Profile, week: number)
+	if profile.weekKey ~= week then
+		profile.weekKey = week
+		profile.weekWins = 0
+	end
+	profile.weekWins += 1
+end
+
+-- One-time coin bonus for joining the Roblox group (the server checks the membership). Returns the coins paid.
+function Profile.claimGroupBonus(profile: Profile): number
+	if profile.groupBonus then
+		return 0
+	end
+	profile.groupBonus = true
+	profile.coins += Constants.GROUP_BONUS_COINS
+	return Constants.GROUP_BONUS_COINS
+end
+
+-- Changes one setting from the settings panel. Unknown keys and wrong types are refused.
+function Profile.setSetting(profile: Profile, key: string, value: any): boolean
+	local defaults = Profile.defaultSettings() :: any
+	if type(key) ~= "string" or defaults[key] == nil or type(value) ~= type(defaults[key]) then
+		return false
+	end
+	(profile.settings :: any)[key] = value
+	return true
 end
 
 -- Remembers a prompt fighter by its share code (newest first, at most PROMPT_HISTORY, no duplicates).
@@ -433,6 +493,7 @@ function Profile.view(profile: Profile): { [string]: any }
 		owned = owned,
 		winsToUnlock = Progression.WINS_PER_FIGHTER_UNLOCK - profile.wins % Progression.WINS_PER_FIGHTER_UNLOCK,
 		prompts = table.clone(profile.promptFighters),
+		settings = table.clone(profile.settings),
 	}
 end
 

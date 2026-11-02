@@ -22,6 +22,7 @@ local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilde
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local ProfileState = require(script.Parent.Parent.State.ProfileState)
 local Effects = require(script.Parent.Parent.Controllers.Effects)
+local Layout = require(script.Parent.Layout)
 
 local Shop = {}
 
@@ -169,17 +170,27 @@ function Shop.start()
 	gui.Parent = localPlayer:WaitForChild("PlayerGui")
 	local uiScale = Instance.new("UIScale")
 	uiScale.Parent = gui
-	local function rescale()
-		local view = workspace.CurrentCamera.ViewportSize
-		uiScale.Scale = math.clamp(math.min(view.X / (PANEL_W + 40), view.Y / (PANEL_H + 40)), 0.4, 1.15)
-	end
-	rescale()
-	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
-
-	-- Lobby button, left under the guide.
-	local openButton = button(gui, "🛒 SHOP", UDim2.fromOffset(150, 48), UDim2.fromOffset(12, 222), PINK)
+	-- Lobby button in the reserved top-right slot (UI/Layout.SHOP_SLOT), below the Roblox top bar.
+	local openButton = button(gui, "🛒 SHOP", UDim2.fromOffset(150, 48), UDim2.new(), PINK)
+	openButton.AnchorPoint = Vector2.new(1, 0)
 	stroke(openButton, Color3.new(1, 1, 1), 2)
 	openButton.Visible = false
+
+	-- The panel fits the screen below the top bar; the button keeps its slot size in screen pixels.
+	local panelRef: Frame? = nil
+	Layout.watch(function()
+		local view = workspace.CurrentCamera.ViewportSize
+		local topPx = Layout.topPixels()
+		local scale = math.clamp(math.min(view.X / (PANEL_W + 40), (view.Y - topPx) / (PANEL_H + 20)), 0.4, 1.15)
+		uiScale.Scale = scale
+		local slot = Layout.SHOP_SLOT
+		openButton.Size = UDim2.fromOffset((slot.width - 40) / scale, (slot.height - 8) / scale)
+		openButton.Position = UDim2.new(1, -Layout.MARGIN / scale, 0, topPx / scale)
+		local p = panelRef
+		if p then
+			p.Position = UDim2.new(0.5, 0, 0.5, topPx / scale / 2)
+		end
+	end)
 
 	local backdrop = Instance.new("TextButton")
 	backdrop.Text = ""
@@ -197,6 +208,8 @@ function Shop.start()
 	panel.BackgroundColor3 = INK
 	panel.Visible = false
 	panel.Parent = gui
+	panelRef = panel
+	panel.Position = UDim2.new(0.5, 0, 0.5, Layout.top(uiScale.Scale) / 2)
 	corner(panel, 18)
 	local panelStroke = stroke(panel, Color3.new(1, 1, 1), 3)
 	local gradient = Instance.new("UIGradient")

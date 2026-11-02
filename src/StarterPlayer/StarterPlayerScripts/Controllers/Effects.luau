@@ -41,6 +41,9 @@ local LIMITS = {
 
 local Effects = {}
 
+-- Settings "Grafik: weniger Partikel" (UI/Settings): particle bursts and running animations scale with this.
+Effects.PARTICLE_SCALE = 1
+
 local folder: Folder? = nil
 
 local function container(): Folder
@@ -111,7 +114,7 @@ local function stepAnims(dt: number)
 end
 
 local function animate(update: (dt: number) -> boolean)
-	if #anims >= LIMITS.maxAnims then
+	if #anims >= math.max(20, math.floor(LIMITS.maxAnims * Effects.PARTICLE_SCALE)) then
 		-- Over budget: finish the oldest effect right away.
 		pcall(anims[1].update, math.huge)
 		table.remove(anims, 1)
@@ -255,7 +258,7 @@ local function burst(
 	end
 	e.Color = ColorSequence.new(Color3.new(1, 1, 1):Lerp(color, 0.25), color)
 	e.Speed = NumberRange.new(speed * 0.45, speed)
-	e:Emit(math.clamp(math.floor(count), 1, LIMITS.maxSparks))
+	e:Emit(math.clamp(math.floor(count * Effects.PARTICLE_SCALE), 1, LIMITS.maxSparks))
 end
 
 -- Spark burst: count scales with damage. Same signature as before; now pooled and streaked.

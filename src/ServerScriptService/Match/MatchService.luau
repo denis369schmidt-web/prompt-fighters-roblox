@@ -24,6 +24,8 @@ local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 local PromptService = require(script.Parent.Parent.Prompt.PromptService)
 local ShopService = require(script.Parent.Parent.Shop.ShopService)
+local Analytics = require(script.Parent.Parent.Analytics.Analytics)
+local LeaderboardService = require(script.Parent.Parent.Leaderboard.LeaderboardService)
 
 local LOBBY_SECONDS = 20 -- after the first fighter pick, time to vote and for friends to pick
 local READY_SECONDS = 5 -- once every player in the server has picked
@@ -130,6 +132,7 @@ local function sliceAllowed(fighterId: string): boolean
 end
 
 local rematchTally: () -> { yes: number, no: number, total: number }
+local matchPlayers: () -> { number }
 
 local function broadcastState()
 	local current = runner
@@ -282,7 +285,7 @@ local function launch(slots: { MatchRunner.Slot }, countdown: number)
 		botLevel = BOT_LEVEL,
 		botLevels = levels,
 		gentle = gentle,
-		botStocks = if gentle then 2 else nil,
+		botStocks = if gentle then 1 else nil, -- one stock less than the player (FFA_STOCKS)
 		seed = roundSeed,
 		arena = arenaId,
 		countdown = countdown,
@@ -294,6 +297,7 @@ local function launch(slots: { MatchRunner.Slot }, countdown: number)
 	local info = Arenas.byId[arenaId]
 	LobbyBuilder.setStatus("KAMPF LÄUFT", if info then info.name else arenaId)
 	broadcastState()
+	Analytics.matchStarted(matchPlayers())
 end
 
 local function startMatch()
@@ -370,6 +374,8 @@ end
 
 local function finishMatch(current: MatchRunner.Runner)
 	rewardPlayers(current)
+	LeaderboardService.matchFinished(current)
+	Analytics.matchFinished(matchPlayers())
 	local place = places(current)
 	local stats = {}
 	for i, f in current.sim.fighters do
@@ -399,8 +405,8 @@ local function toLobby()
 	broadcastState()
 end
 
--- Players of the finished match who are still in the server.
-local function matchPlayers(): { number }
+-- Players of the current (or finished) match who are still in the server.
+matchPlayers = function(): { number }
 	local out = {}
 	local current = runner
 	if current then
@@ -496,6 +502,7 @@ local function onHeartbeat(dt: number)
 		if #outgoing > 0 then
 			RemoteHub.fireAll("MatchEvent", outgoing)
 		end
+		Analytics.afterStep(current, events)
 		if current.sim.frame - lastSnapshotFrame >= SNAPSHOT_EVERY then
 			lastSnapshotFrame = current.sim.frame
 			RemoteHub.fireAll("Snapshot", current:snapshot())

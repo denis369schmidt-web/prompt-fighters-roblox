@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Fighters = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Data"):WaitForChild("Fighters"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local ProfileState = require(script.Parent.Parent.State.ProfileState)
+local Layout = require(script.Parent.Layout)
 
 local MetaHud = {}
 
@@ -108,6 +109,12 @@ function MetaHud.start()
 	toast.TextColor3 = GOLD
 	toast.Visible = false
 	corner(toast, 10)
+	-- Below the Roblox top bar (UI/Layout); the toast sits under the top-center prompt button.
+	Layout.watch(function()
+		local top = Layout.top(uiScale.Scale)
+		bar.Position = UDim2.fromOffset(12, top)
+		toast.Position = UDim2.new(0.5, -260, 0, top + 54)
+	end)
 	local toastToken = 0
 	local function showToast(message: string)
 		toastToken += 1

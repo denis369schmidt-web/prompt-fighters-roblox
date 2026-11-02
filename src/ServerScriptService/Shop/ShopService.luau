@@ -96,7 +96,7 @@ local function processReceipt(info: { [string]: any }): Enum.ProductPurchaseDeci
 	local fresh = false
 	PlayerData.update(player, function(profile)
 		fresh, summary = Purchases.applyReceipt(profile, product, purchaseId, os.time())
-	end, nil)
+	end, { economy = "iap" })
 	-- Saved now or never granted: a crash before this point loses nothing, Roblox simply asks again.
 	if not PlayerData.saveNow(player) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
@@ -113,7 +113,8 @@ local function buyWithCoins(player: Player, kind: string, id: string): Answer
 		return { ok = false, message = "Profil lädt noch" }
 	end
 	local answer: Answer = { ok = false, message = "Unbekannt" }
-	local extra: { [string]: any } = {}
+	-- Analytics (PlayerData.coinsChanged): fighters keep their own sku, cosmetics count as shop.
+	local extra: { [string]: any } = { economy = if kind == "fighter" then "fighter" else "shop" }
 	PlayerData.update(player, function(profile)
 		local ok, reason
 		if kind == "fighter" then

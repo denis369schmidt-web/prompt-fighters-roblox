@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Constants = require(ReplicatedStorage.Shared.Data.Constants)
 local Profile = require(ReplicatedStorage.Shared.Meta.Profile)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 
@@ -25,6 +26,8 @@ type Entry = { profile: Profile.Profile, saved: boolean, dirty: boolean, changes
 local entries: { [number]: Entry } = {}
 local store: DataStore? = nil
 local loaded = Instance.new("BindableEvent")
+-- (player, delta, balance, reason): every coin change, for Server/Analytics economy events.
+local coinsChanged = Instance.new("BindableEvent")
 
 do
 	local ok, result = pcall(function()
@@ -129,6 +132,24 @@ local function load(player: Player)
 	entry.changes += 1
 	push(player, entry, if coins > 0 then { loginCoins = coins, loginDay = day } else nil)
 	loaded:Fire(player)
+	if coins > 0 then
+		coinsChanged:Fire(player, coins, profile.coins, "login")
+	end
+	task.spawn(PlayerData.checkGroupBonus, player)
+end
+
+-- Coin change reason for analytics: an explicit extra.economy, else guessed from what rides along.
+local function economyReason(extra: { [string]: any }?): string
+	if extra == nil then
+		return "other"
+	elseif type(extra.economy) == "string" then
+		return extra.economy
+	elseif extra.reward then
+		return "match"
+	elseif extra.bought then
+		return "fighter"
+	end
+	return "other"
 end
 
 -- The player's profile, or nil while it is still loading.
@@ -143,10 +164,34 @@ function PlayerData.update(player: Player, change: (profile: Profile.Profile) ->
 	if entry == nil then
 		return
 	end
+	local coinsBefore = entry.profile.coins
 	change(entry.profile)
 	entry.dirty = true
 	entry.changes += 1
 	push(player, entry, extra)
+	local delta = entry.profile.coins - coinsBefore
+	if delta ~= 0 then
+		coinsChanged:Fire(player, delta, entry.profile.coins, economyReason(extra))
+	end
+end
+
+-- One-time coin bonus for members of the Roblox group (Constants.GROUP_ID; 0 = off). Player:IsInGroup is
+-- cached per session, so someone who joins the group mid-session gets the bonus on the next visit.
+function PlayerData.checkGroupBonus(player: Player)
+	local profile = PlayerData.get(player)
+	if Constants.GROUP_ID <= 0 or profile == nil or profile.groupBonus then
+		return
+	end
+	local ok, member = pcall(function()
+		return player:IsInGroup(Constants.GROUP_ID)
+	end)
+	if ok and member == true and player.Parent then
+		local extra: { [string]: any } = { economy = "group" }
+		PlayerData.update(player, function(p)
+			local coins = Profile.claimGroupBonus(p)
+			extra.message = if coins > 0 then `Danke, dass du in der Gruppe bist: +{coins} Münzen!` else nil
+		end, extra)
+	end
 end
 
 -- Sends the current state again (e.g. after a game pass purchase changed session data).
@@ -169,8 +214,15 @@ function PlayerData.saveNow(player: Player): boolean
 end
 
 PlayerData.loaded = loaded.Event
+PlayerData.coinsChanged = coinsChanged.Event
 
 function PlayerData.start()
+	-- Settings panel (UI/Settings): one boolean option per call, saved with the profile.
+	RemoteHub.on("SaveSetting", function(player, key: string, value: boolean)
+		PlayerData.update(player, function(profile)
+			Profile.setSetting(profile, key, value)
+		end)
+	end)
 	Players.PlayerAdded:Connect(load)
 	for _, player in Players:GetPlayers() do
 		task.spawn(load, player)

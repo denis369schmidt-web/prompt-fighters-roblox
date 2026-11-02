@@ -6,10 +6,19 @@ local Constants = {
 	METER = 3.57,
 	TICK_RATE = 60,
 	MAX_PLAYERS = 4,
+	-- Stocks per fighter: 3 in a duel, 2 once three or more fight (free-for-all). Pacing in docs/DECISIONS.md
+	-- (scripts/pacing.luau): with 3 stocks every 4-fighter match ran into the time limit.
 	DEFAULT_STOCKS = 3,
+	FFA_STOCKS = 2,
 	MATCH_SECONDS = 99,
 	MAX_PERCENT = 999,
+	-- Fastest launch of one hit (m/s, Combat/Knockback.attack). Above ~100 % most hits reach it, so this decides
+	-- the KO percent more than the growth curve does (Godot: 19; 23 brings KOs from ~230 % down to ~160 %).
+	MAX_LAUNCH = 23,
 	SUDDEN_DEATH_PERCENT = 150,
+	-- Roblox group for the one-time join bonus (docs/GROWTH.md 4). 0 = disabled until the group exists.
+	GROUP_ID = 0,
+	GROUP_BONUS_COINS = 300,
 	RESPAWN_INVULNERABLE = 2.0,
 	MAX_SUPER = 100,
 	SUPER_GAIN = {
