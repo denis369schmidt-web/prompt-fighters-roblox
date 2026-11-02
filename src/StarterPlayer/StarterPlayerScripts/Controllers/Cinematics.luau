@@ -300,15 +300,17 @@ function Cinematics.start()
 		platesOut = false
 		lastCount = 0
 		local info = Arenas.byId[MatchState.arena]
+		-- Modes: the raid shows its boss card (UI/BossHud) instead of the VS plates.
+		local raid = MatchState.mode == "raid"
 		arenaName.Text = if rematch then "REVANCHE!" elseif info then info.name else MatchState.arena
-		arenaCaption.Text = if rematch then "GLEICHE KÄMPFER · GLEICHE ARENA" else "ARENA"
+		arenaCaption.Text = if rematch then "GLEICHE KÄMPFER · GLEICHE ARENA" elseif raid then "BOSS-RAID" else "ARENA"
 		arenaCard.Position = UDim2.new(0.5, 0, 0, -140)
 		tween(arenaCard, 0.45, { Position = UDim2.new(0.5, 0, 0, 70) }, Enum.EasingStyle.Back)
 		versus.TextTransparency = 1
 		versusStroke.Transparency = 1
 		introLayer.Visible = true
 		letterbox(true)
-		if rematch then
+		if rematch or raid then
 			clearPlates()
 		else
 			buildPlates()
@@ -541,8 +543,13 @@ function Cinematics.start()
 		skip.Visible = true
 		local mine = winnerSlot == MatchState.mySlot
 		local slot = MatchState.slots[winnerSlot]
-		Announcer.show(if mine then "SIEG!" else `{slot.name} GEWINNT!`, {
-			sub = if mine then "Du bist der Champion" elseif slot.player then slot.player else nil,
+		local raid = MatchState.mode == "raid"
+		Announcer.show(if raid then "SIEG IM TEAM!" elseif mine then "SIEG!" else `{slot.name} GEWINNT!`, {
+			sub = if raid
+				then (if mine then "Du hast den meisten Schaden gemacht" else `MVP: {slot.name}`)
+				elseif mine then "Du bist der Champion"
+				elseif slot.player then slot.player
+				else nil,
 			color = if mine then GOLD else slotColor(winnerSlot),
 			seconds = VICTORY_SECONDS - 0.4,
 			size = "huge",
@@ -621,7 +628,11 @@ function Cinematics.start()
 			flash.BackgroundTransparency = 0.3
 			tween(flash, 0.5, { BackgroundTransparency = 1 })
 			Sfx.play("metal", 1, 0.7)
-			Announcer.show(if winnerSlot > 0 then "GAME!" else "UNENTSCHIEDEN", {
+			local gameText = if winnerSlot > 0 then "GAME!" else "UNENTSCHIEDEN"
+			if event.raid then
+				gameText = if event.victory then "BOSS BESIEGT!" else "NIEDERLAGE" -- Modes: Boss-Raid
+			end
+			Announcer.show(gameText, {
 				color = GOLD,
 				seconds = GAME_SECONDS,
 				size = "huge",

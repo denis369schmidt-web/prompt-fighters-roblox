@@ -722,7 +722,11 @@ local function emitStep(self: Fight, dt: number)
 	elseif mode == "rain" then
 		local half = 3.2 + num(p, "count", 10) * 0.05
 		local x = self.aimX + self.rng:range(-half, half)
-		spawnShot(self, x, 11.5, 0, -2, p, base)
+		spawnShot(self, x, 11.5, 0, -6, p, base)
+		local drop = self.shots[#self.shots]
+		if drop then
+			drop.life = math.max(drop.life, 3) -- light drops (low gravity) still reach the floor
+		end
 	elseif mode == "radial" then
 		local n = 7
 		local offset = self.rng:range(0, 0.4)

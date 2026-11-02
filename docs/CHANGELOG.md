@@ -203,3 +203,13 @@
 - Bewegte Deko (Züge, Blimp, Flugzeuge, Helikopter, Seilbahn, Kranhaken, Ventilatoren, Station, Fahnen, Laternen, Suchscheinwerfer, pulsierendes Neon) über `Shared/Visual/DecorMotion` + `DecorAnimator.client` (nur Client, BulkMoveTo, 30 Hz, nur in Kameranähe).
 - Alle Deko verankert, ohne Kollision/Touch/Query; Schatten nur für große Parts nahe der Kamera (`World/Decor.finalize`).
 - `scripts/part-budget.luau`, `shots.sh` mit Kontaktbogen und Lobby-Draufsicht; Renderer kann Text auf der Oberseite.
+
+## 2026-11-02: Boss-Raid, Modus-Wahl und Tages-Challenge
+
+- Boss-Raid (`Combat/BossFight`): 1–4 Spieler plus Bot-Helfer gegen einen riesigen prozeduralen Boss (`Visual/BossRig`, ≤ 140 Parts). Er hat eine HP-Leiste und angekündigte Angriffsmuster aus `BossData` (emit, beam, charge, gale, ring, dive, nova, pillars, slow, sweep). Bei 50 % zerspringt die Hülle und Phase 2 beginnt. Wut ab 150 s, Niederlage bei 210 s. Gemeinsamer Lebenspool (1,5 pro Held), 3 s bis zum Respawn.
+- Raid-Arenen „HÖLLENSCHLUND“ und „HIMMELSSPHÄREN“ (Layout `raid`, `ArenaBuilder.raidSanctum`).
+- Tages-Challenge (`Data/DailyChallenge`): pro UTC-Tag für alle gleich. Kämpfer, Gegner, 2 Mutatoren (`Combat/MutatorRules`), Ziel (Sieg / unter 60 s / ohne Stockverlust / 1 gegen 2) und Bot-Stufe 4–7. Münzen einmal pro Tag, Serie bis 7.
+- Modus-Wahl in der Lobby: Felder und Tafeln (`World/ModeBoard`) sowie ein Panel (`UI/ModeHud`) mit SCHNELLKAMPF / BOSS-RAID / TAGES-CHALLENGE. Remote `VoteMode`, unzuverlässiges Remote `BossState` (15 Hz).
+- Client: Boss-Leiste mit Phasenmarke, Wut-Uhr und Teamleben (`UI/BossHud`). Namenskarte, Telegraph-Decals, Hüllen-Zerspringen, Sieg- und Niederlage-Panel (`Controllers/BossView`). Im Raid zeigt das HUD LP statt Stocks.
+- Belohnungen pro Boss datengetrieben (`Bosses.REWARD`, `Meta/ModeRewards`), Titel „BEZWINGER: …“ beim ersten Sieg. Profil: `challengeDay`, `challengeStreak`, `bossWins` (mit Migration).
+- Tests: `BossRaid.spec`, `DailyChallenge.spec`, `RaidWorld.spec`. `export-scene.luau boss <id> [shattered]`.

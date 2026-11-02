@@ -27,6 +27,9 @@ local MatchState = {
 	items = {} :: { [number]: { kind: number, x: number, y: number, state: number } },
 	-- results screen: rematch votes of the match's players
 	rematch = nil :: { yes: number, no: number, total: number }?,
+	-- modes: "quick" | "raid" | "daily" of the running match, and the lobby's mode vote / boss / daily challenge
+	mode = "quick",
+	modeInfo = nil :: { [string]: any }?,
 }
 
 local listeners: { (event: { [string]: any }) -> () } = {}
@@ -97,6 +100,8 @@ function MatchState.start()
 				MatchState.arena = event.arena or MatchState.arena
 				MatchState.options = event.options or {}
 				MatchState.votes = event.votes or {}
+				MatchState.mode = event.mode or "quick"
+				MatchState.modeInfo = event.modeInfo or MatchState.modeInfo
 				if event.slots then
 					MatchState.slots = event.slots
 					MatchState.mySlot = nil

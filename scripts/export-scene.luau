@@ -243,6 +243,37 @@ elseif kind == "scene" then
 		posedRig(f, roblox.CFrame.new(at[1], at[2], at[3]) * roblox.CFrame.Angles(0, math.rad(f.yaw or 0), 0)).Parent =
 			root
 	end
+elseif kind == "boss" then
+	-- Boss-Raid preview: the boss's raid arena, the boss (Visual/BossRig) in the middle and four fighters around it.
+	--   lune run scripts/export-scene.luau boss <bossId> [shattered] out.json
+	local roblox = require("@lune/roblox")
+	local Bosses = Loader.require(Shared.Data.Bosses)
+	local BossRig = Loader.require(Shared.Visual.BossRig)
+	local Visuals = Loader.require(Shared.Data.Visuals)
+	local bossId = process.args[2]
+	root = Loader.require(Server.World.ArenaBuilder).build(Bosses.arenaFor(bossId))
+	local M = Visuals.STUDS_PER_METER
+	local _, _, hover = Bosses.raidBody(bossId)
+	local rig = BossRig.build(bossId)
+	local place = roblox.CFrame.new(0, Visuals.STAGE_Y + hover * M, -2) * roblox.CFrame.Angles(0, -0.2, 0)
+	for _, d in rig:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CFrame = place * d.CFrame
+			d:SetAttribute("Posed", true)
+			if process.args[3] == "shattered" and d:GetAttribute("BossGroup") == "Shell" then
+				d.Transparency = 1
+			end
+		end
+	end
+	rig.Parent = root
+	local heroes = { { "ninja", -6.4, 1 }, { "steel_knight", -3.6, 1 }, { "phoenix", 3.8, -1 }, { "golem", 6.6, -1 } }
+	for _, h in heroes do
+		posedRig(
+			{ fighter = h[1], facing = h[3], t = 0.4, phase = 0.2 },
+			roblox.CFrame.new(h[2] * M, Visuals.STAGE_Y, 2)
+		).Parent =
+			root
+	end
 else
 	error(
 		"usage: export-scene.luau arena <id> | lobby | fighters | portrait <id,id,...> <yawDeg> | prompts <a;b> <yawDeg> | poses <spec.json> | scene <spec.json> <out.json>"

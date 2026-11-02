@@ -17,6 +17,7 @@ local Fighters = require(Shared:WaitForChild("Data"):WaitForChild("Fighters"))
 local Visuals = require(Shared:WaitForChild("Data"):WaitForChild("Visuals"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
 local MatchState = require(script.Parent.Parent.State.MatchState)
+local RaidState = require(script.Parent.Parent.State.RaidState)
 local ProfileState = require(script.Parent.Parent.State.ProfileState)
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
 local Layout = require(script.Parent.Layout)
@@ -488,8 +489,9 @@ function Hud.start()
 			return
 		end
 		local snap = MatchState.snapshot :: MatchRunner.NetSnapshot
-		if snap.countdown > 0 then
-			timer.Text = "" -- Cinematics shows 3 · 2 · 1
+		local raid = MatchState.mode == "raid"
+		if snap.countdown > 0 or raid then
+			timer.Text = "" -- Cinematics shows 3 · 2 · 1; the raid clock is on the boss bar (UI/BossHud)
 		elseif snap.finishPhase then
 			timer.Text = string.format("%.1f", math.max(0, snap.finishTimer))
 		else
@@ -499,9 +501,20 @@ function Hud.start()
 		for i, f in snap.fighters do
 			local card = cards[i]
 			if card then
-				card.percent.Text = if f.state == "Defeated" then "RAUS" else `{math.floor(f.percent)}%`
-				card.percent.TextColor3 = percentColor(f.percent)
-				card.stocks.Text = string.rep("●", f.lives)
+				local hero = if raid then RaidState.hero(i) else nil
+				if hero then
+					-- Boss-Raid: hit points instead of percent, the shared lives are on the boss bar.
+					card.percent.Text = if hero.out
+						then "RAUS"
+						elseif hero.down > 0 then `{math.ceil(hero.down)} s`
+						else `{hero.hp} LP`
+					card.percent.TextColor3 = percentColor((1 - hero.hp / math.max(1, hero.maxHp)) * 150)
+					card.stocks.Text = ""
+				else
+					card.percent.Text = if f.state == "Defeated" then "RAUS" else `{math.floor(f.percent)}%`
+					card.percent.TextColor3 = percentColor(f.percent)
+					card.stocks.Text = string.rep("●", f.lives)
+				end
 				card.super.Size = UDim2.fromScale(math.clamp(f.super / Constants.MAX_SUPER, 0, 1), 1)
 			end
 		end
