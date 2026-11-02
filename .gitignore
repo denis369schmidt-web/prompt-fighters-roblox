@@ -6,4 +6,4 @@
 /build
 roblox.yml
 sourcemap.json
-scripts/preview/node_modules/
+scripts/preview/node_modules
