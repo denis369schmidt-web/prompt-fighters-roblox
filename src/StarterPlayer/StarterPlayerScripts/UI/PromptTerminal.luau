@@ -7,6 +7,7 @@
 -- (Prompt/Registry), so the client never needs more than the server's summary.
 
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -620,6 +621,15 @@ function PromptTerminal.start()
 			center + Vector3.new(0, 0.2, 0)
 		)
 		rays.Rotation = (rays.Rotation + dt * 12) % 360
+	end)
+
+	-- The physical terminal in the lobby (server adds the ProximityPrompt to LobbyBuilder's anchor).
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		if prompt.Name == "OpenPromptTerminal" and inLobby() then
+			revealing = false
+			setOpen(true)
+			input:CaptureFocus()
+		end
 	end)
 
 	MatchState.onEvent(function(event)

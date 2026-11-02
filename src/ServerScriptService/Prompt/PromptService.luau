@@ -16,8 +16,11 @@ local Registry = require(ReplicatedStorage.Shared.Prompt.Registry)
 local Profile = require(ReplicatedStorage.Shared.Meta.Profile)
 local PlayerData = require(script.Parent.Parent.Data.PlayerData)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
+local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 
 local PromptService = {}
+-- Name of the ProximityPrompt on the lobby's terminal anchor; the client opens the terminal UI when it fires.
+PromptService.PROXIMITY_NAME = "OpenPromptTerminal"
 
 -- Prompt fighter ids each player made or loaded this session (the saved list covers earlier sessions).
 local allowed: { [number]: { [string]: boolean } } = {}
@@ -88,6 +91,8 @@ local function submit(player: Player, raw: string): { [string]: any }
 	end
 	local result = Registry.fromText(safe)
 	remember(player, result)
+	-- The newest creation stands on the lobby showcase for everyone (only its id is used, never the text).
+	pcall(LobbyBuilder.setFeatured, result.id)
 	return { ok = true, fighter = result.summary, prompt = safe }
 end
 
@@ -101,7 +106,26 @@ local function loadCode(player: Player, input: string): { [string]: any }
 	return { ok = true, fighter = result.summary }
 end
 
+-- A ProximityPrompt on the lobby terminal (LobbyBuilder's "PromptTerminal" anchor) that opens the prompt UI.
+local function addProximityPrompt()
+	local found = LobbyBuilder.terminal()
+	if found == nil then
+		return
+	end
+	local anchor = found :: BasePart
+	local parent: Instance = anchor:FindFirstChild("PromptAttachment") or anchor
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = PromptService.PROXIMITY_NAME
+	prompt.ActionText = "Kämpfer erschaffen"
+	prompt.ObjectText = "Prompt-Terminal"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = parent
+end
+
 function PromptService.start()
+	addProximityPrompt()
 	RemoteHub.handle("SubmitPrompt", submit, TOO_FAST)
 	RemoteHub.handle("LoadPromptCode", loadCode, TOO_FAST)
 	Players.PlayerRemoving:Connect(function(player)
