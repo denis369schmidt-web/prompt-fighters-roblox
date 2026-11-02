@@ -912,7 +912,18 @@ Keywords.BODIES = {
 	},
 	{
 		key = "racer",
-		words = { "rennfahrer", "racer", "speedster", "flitzer", "kurier", "läufer", "runner", "pilot", "rakete", "rocket" },
+		words = {
+			"rennfahrer",
+			"racer",
+			"speedster",
+			"flitzer",
+			"kurier",
+			"läufer",
+			"runner",
+			"pilot",
+			"rakete",
+			"rocket",
+		},
 		name = "RACER",
 		prefix = "TURBO",
 		role = "Flitzer",
@@ -1044,7 +1055,18 @@ Keywords.BODIES = {
 	},
 	{
 		key = "koenig",
-		words = { "könig", "king", "königin", "queen", "prinz", "prince", "prinzessin", "princess", "kaiser", "emperor" },
+		words = {
+			"könig",
+			"king",
+			"königin",
+			"queen",
+			"prinz",
+			"prince",
+			"prinzessin",
+			"princess",
+			"kaiser",
+			"emperor",
+		},
 		name = "KÖNIG",
 		prefix = "KÖNIGS",
 		role = "Herrscher",
@@ -1064,7 +1086,18 @@ Keywords.BODIES = {
 	},
 	{
 		key = "held",
-		words = { "held", "hero", "kämpfer", "kämpferin", "fighter", "krieger", "warrior", "brawler", "ringer", "champion" },
+		words = {
+			"held",
+			"hero",
+			"kämpfer",
+			"kämpferin",
+			"fighter",
+			"krieger",
+			"warrior",
+			"brawler",
+			"ringer",
+			"champion",
+		},
 		name = "KÄMPFER",
 		prefix = "KAMPF",
 		role = "Kämpfer",
@@ -1212,8 +1245,10 @@ Keywords.SIGNATURE_NOUNS = {
 -- Name endings for prompts that name an element but no body or weapon (FEUER + HERZ).
 Keywords.EPITHETS = { "HERZ", "ZAHN", "KLAUE", "SCHWINGE", "SEELE", "BRUT", "FÜRST", "BESTIE", "WÄCHTER", "HORN" }
 -- Syllables for prompts without any keyword (ZOR + VAK = ZORVAK).
-Keywords.SYLLABLES_START = { "ZOR", "KI", "VAL", "MOR", "TAR", "LY", "BRAX", "NE", "QUO", "RA", "SKA", "DRU", "FEN", "OK" }
-Keywords.SYLLABLES_END = { "VAK", "RANO", "DUR", "XIS", "MIRA", "THAL", "GORN", "ZEL", "RIX", "UNA", "KOR", "VEX", "LON" }
+Keywords.SYLLABLES_START =
+	{ "ZOR", "KI", "VAL", "MOR", "TAR", "LY", "BRAX", "NE", "QUO", "RA", "SKA", "DRU", "FEN", "OK" }
+Keywords.SYLLABLES_END =
+	{ "VAK", "RANO", "DUR", "XIS", "MIRA", "THAL", "GORN", "ZEL", "RIX", "UNA", "KOR", "VEX", "LON" }
 -- Title nouns for prompts without a body.
 Keywords.ROLES = { "Wanderer", "Kämpfer", "Rebell", "Champion", "Herausforderer", "Streuner", "Wächter", "Rivale" }
 -- Title adjectives without element or tempo word.

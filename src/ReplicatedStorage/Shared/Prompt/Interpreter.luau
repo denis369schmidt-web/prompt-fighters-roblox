@@ -81,9 +81,11 @@ assert(#ELEMENTS < 32 and #BODIES < 32 and #WEAPONS < 16 and #TEMPOS < 4, "Keywo
 -- Folds umlauts and ß to ASCII (ä -> ae), so "baer" and "bär" match the same keyword.
 local FOLD = { ["ä"] = "ae", ["ö"] = "oe", ["ü"] = "ue", ["ß"] = "ss" }
 local function fold(text: string): string
-	return (string.gsub(Seed.lower(text), "\xC3[\x84\x96\x9C\xA4\xB6\xBC\x9F]", function(ch)
-		return FOLD[Seed.lower(ch)] or ch
-	end))
+	return (
+		string.gsub(Seed.lower(text), "\xC3[\x84\x96\x9C\xA4\xB6\xBC\x9F]", function(ch)
+			return FOLD[Seed.lower(ch)] or ch
+		end)
+	)
 end
 Interpreter.fold = fold
 
@@ -200,10 +202,11 @@ end
 
 -- Traits from a code, or nil when the code is malformed or names entries that do not exist.
 function Interpreter.traitsFromCode(input: string): Traits?
-	local t = Code.decode(input)
-	if t == nil then
+	local decoded = Code.decode(input)
+	if decoded == nil then
 		return nil
 	end
+	local t = decoded :: Traits
 	if t.element > #ELEMENTS or t.body > #BODIES or t.body2 > #BODIES or t.weapon > #WEAPONS or t.tempo > #TEMPOS then
 		return nil
 	end
@@ -395,7 +398,14 @@ function Interpreter.build(traits: Traits): Result
 
 	-- Stats: the body's base, leaned by element, weapon and tempo, a little seed noise, budget 100.
 	local values = table.clone(body.stats)
-	for _, delta in { element.stats, if weapon then weapon.stats else nil, if tempo then tempo.stats else nil } do
+	local deltas: { Keywords.StatDelta } = { element.stats }
+	if weapon then
+		table.insert(deltas, weapon.stats)
+	end
+	if tempo then
+		table.insert(deltas, tempo.stats)
+	end
+	for _, delta in deltas do
 		for k = 1, 5 do
 			values[k] += delta[k]
 		end
@@ -568,7 +578,7 @@ function Interpreter.build(traits: Traits): Result
 		headOffset = body.headOffset,
 		materials = materials,
 	}
-	for key, value in body.look or {} do
+	for key, value in (body.look or {}) :: { [string]: any } do
 		if key ~= "glowEyes" then
 			(look :: any)[key] = value
 		end
@@ -606,8 +616,8 @@ function Interpreter.build(traits: Traits): Result
 		signatureParams = sig,
 		finisher = finisher,
 		gear = gear,
-	}
-	;(fighter :: any).prompt = { code = code, title = title, kit = body.kit, donor = donor }
+	};
+	(fighter :: any).prompt = { code = code, title = title, kit = body.kit, donor = donor }
 
 	local recognized: { string } = {}
 	if explicitElement then

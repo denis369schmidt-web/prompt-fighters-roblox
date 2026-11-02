@@ -35,7 +35,8 @@ local function argsValid(schema: { string }, args: { any }, maxLength: number?):
 			return false
 		end
 		if kind == "string" then
-			if #value > MAX_STRING then
+			-- Bytes: a UTF-8 character takes up to 4, so remotes with a character limit allow that many.
+			if #value > (if maxLength then math.max(MAX_STRING, maxLength * 4) else MAX_STRING) then
 				return false
 			end
 			-- Text must be valid UTF-8 and within the remote's character limit.

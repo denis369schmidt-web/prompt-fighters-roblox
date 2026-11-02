@@ -180,7 +180,12 @@ elseif kind == "prompts" then
 	root = roblox.Instance.new("Model")
 	for i, text in texts do
 		local result = Registry.fromText(text)
-		print(`{text} -> {result.fighter.name} ({result.summary.title}) code {result.code}: {table.concat(result.look.gear, ", ")}`)
+		print(
+			`{text} -> {result.fighter.name} ({result.summary.title}) code {result.code}: {table.concat(
+				result.look.gear,
+				", "
+			)}`
+		)
 		local x = ((#texts + 1) / 2 - i) * 6
 		local origin = roblox.CFrame.new(x, 0, 0)
 		local plinth = roblox.Instance.new("Part")

@@ -19,6 +19,7 @@ export type View = {
 	loginDay: number?,
 	message: string?,
 	bought: string?,
+	prompts: { string }?, -- share codes of the player's last prompt fighters, newest first
 }
 
 local ProfileState = {

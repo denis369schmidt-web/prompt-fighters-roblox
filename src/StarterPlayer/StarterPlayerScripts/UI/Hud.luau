@@ -19,8 +19,16 @@ local InputController = require(script.Parent.Parent.Controllers.InputController
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local ProfileState = require(script.Parent.Parent.State.ProfileState)
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
+local PromptRow = require(script.Parent.PromptRow)
 
 local Hud = {}
+
+-- Prompt fighters (UI/PromptTerminal): picks a fighter like a tap in the picker; set by Hud.start.
+Hud.choose = nil :: ((fighterId: string) -> ())?
+Hud.openPicker = nil :: (() -> ())?
+-- Set by the prompt terminal: open it for a new prompt, and whether it is open (the picker then stays closed).
+Hud.onNewPrompt = nil :: (() -> ())?
+Hud.isTerminalOpen = nil :: (() -> boolean)?
 
 local FONT = Enum.Font.GothamBlack
 
@@ -238,19 +246,38 @@ function Hud.start()
 			end
 			confirmBuy = nil
 			refreshLocks()
-			chosen = fighterId
-			selectRemote:FireServer(fighterId)
-			for id, b in pickButtons do
-				(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Thickness = if id == fighterId then 4 else 0
+			if Hud.choose then
+				Hud.choose(fighterId)
 			end
-			-- Close the picker so the lobby is free to walk around in.
-			setPickerOpen(false)
 		end)
 		pickButtons[fighterId] = button
 	end
 	ProfileState.onChange(function()
 		refreshLocks()
 	end)
+
+	-- Your prompt fighters (last three) above the roster grid, plus a button for a new prompt.
+	local promptRow = PromptRow.build(gui, UDim2.new(0.5, 0, 1, -420), function(fighterId)
+		if Hud.choose then
+			Hud.choose(fighterId)
+		end
+	end, function()
+		if Hud.onNewPrompt then
+			setPickerOpen(false)
+			Hud.onNewPrompt()
+		end
+	end)
+
+	Hud.choose = function(fighterId: string)
+		chosen = fighterId
+		selectRemote:FireServer(fighterId)
+		for id, b in pickButtons do
+			(b:FindFirstChildOfClass("UIStroke") :: UIStroke).Thickness = if id == fighterId then 4 else 0
+		end
+		PromptRow.setChosen(promptRow, fighterId)
+		-- Close the picker so the lobby is free to walk around in.
+		setPickerOpen(false)
+	end
 
 	-- Lobby: arena vote buttons (same as standing on a pad) and the button that reopens the picker.
 	local votedByButton = false
@@ -304,12 +331,16 @@ function Hud.start()
 	pickerToggle.Activated:Connect(function()
 		setPickerOpen(true)
 	end)
+	Hud.openPicker = function()
+		setPickerOpen(true)
+	end
 
 	setPickerOpen = function(open: boolean)
 		local inLobby = MatchState.phase == "lobby"
 		picker.Visible = inLobby and open
 		pickerTitle.Visible = inLobby and open
 		pickerToggle.Visible = inLobby and not open
+		promptRow.Visible = inLobby and open
 		pickerToggle.Text = if chosen then `{Fighters.get(chosen :: string).name} · ÄNDERN` else "KÄMPFER WÄHLEN"
 	end
 
@@ -477,8 +508,9 @@ function Hud.start()
 				StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 				StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, inLobby)
 			end)
-			-- The picker opens by itself only while no fighter is chosen.
-			setPickerOpen(inLobby and (chosen == nil or picker.Visible))
+			-- The picker opens by itself only while no fighter is chosen and the prompt terminal is closed.
+			local terminalOpen = Hud.isTerminalOpen ~= nil and (Hud.isTerminalOpen :: () -> boolean)()
+			setPickerOpen(inLobby and ((chosen == nil and not terminalOpen) or picker.Visible))
 			showVotes()
 			cardRow.Visible = event.phase == "match" -- the results podium (Cinematics) takes over after
 			touch.Visible = event.phase == "match" and MatchState.mySlot ~= nil and UserInputService.TouchEnabled

@@ -138,7 +138,10 @@ local function chain(
 		local wd = from[1] + (to[1] - from[1]) * t
 		local th = from[2] + (to[2] - from[2]) * t
 		local col = colors[math.min(i, #colors)]
-		table.insert(out, c(limb, name, { wd, length * 1.12, th }, frame * CFrame.new(0, -length / 2, 0), col, material))
+		table.insert(
+			out,
+			c(limb, name, { wd, length * 1.12, th }, frame * CFrame.new(0, -length / 2, 0), col, material)
+		)
 		frame = frame
 			* CFrame.new(0, -length, 0)
 			* CFrame.Angles(math.rad(bend[1]), math.rad(bend[2]), math.rad(bend[3]))

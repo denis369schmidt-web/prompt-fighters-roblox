@@ -44,7 +44,9 @@ local function checkRig(id: string)
 		if d:IsA("BasePart") and d.Transparency < 1 then
 			visible += 1
 			local s = d.Size
-			for _, corner in { Vector3.new(-1, -1, -1), Vector3.new(1, -1, 1), Vector3.new(-1, -1, 1), Vector3.new(1, -1, -1) } do
+			for _, corner in
+				{ Vector3.new(-1, -1, -1), Vector3.new(1, -1, 1), Vector3.new(-1, -1, 1), Vector3.new(1, -1, -1) }
+			do
 				lowest = math.min(lowest, (d.CFrame * (corner * s / 2)).Y)
 			end
 		end
@@ -140,7 +142,14 @@ describe("Prompt interpreter", function()
 		for e = 0, #Keywords.ELEMENTS do
 			for _, b in { 0, 1, 2, 5, 17, 22 } do
 				for _, t in { 0, 1, 2, 3 } do
-					checkFighter(Interpreter.build({ element = e, body = b, body2 = 0, weapon = e % 16, tempo = t, variant = e * 31 % 512 }))
+					checkFighter(Interpreter.build({
+						element = e,
+						body = b,
+						body2 = 0,
+						weapon = e % 16,
+						tempo = t,
+						variant = e * 31 % 512,
+					}))
 				end
 			end
 		end
@@ -163,15 +172,26 @@ describe("Prompt interpreter", function()
 
 	it("builds a valid rig for every element, body and weapon", function()
 		for i = 1, #Keywords.ELEMENTS do
-			local r = Registry.register(Interpreter.build({ element = i, body = 0, body2 = 0, weapon = 0, tempo = 0, variant = i }))
+			local r = Registry.register(
+				Interpreter.build({ element = i, body = 0, body2 = 0, weapon = 0, tempo = 0, variant = i })
+			)
 			checkRig(r.id)
 		end
 		for i = 1, #Keywords.BODIES do
-			local r = Registry.register(Interpreter.build({ element = i % #Keywords.ELEMENTS + 1, body = i, body2 = 0, weapon = 0, tempo = 0, variant = i * 3 }))
+			local r = Registry.register(Interpreter.build({
+				element = i % #Keywords.ELEMENTS + 1,
+				body = i,
+				body2 = 0,
+				weapon = 0,
+				tempo = 0,
+				variant = i * 3,
+			}))
 			checkRig(r.id)
 		end
 		for i = 1, #Keywords.WEAPONS do
-			local r = Registry.register(Interpreter.build({ element = 0, body = i, body2 = 0, weapon = i, tempo = 0, variant = i * 5 }))
+			local r = Registry.register(
+				Interpreter.build({ element = 0, body = i, body2 = 0, weapon = i, tempo = 0, variant = i * 5 })
+			)
 			checkRig(r.id)
 		end
 	end)
@@ -180,7 +200,14 @@ describe("Prompt interpreter", function()
 		for b = 1, #Keywords.BODIES do
 			for b2 = 1, #Keywords.BODIES do
 				if b ~= b2 and (b + b2) % 3 == 0 then
-					local r = Registry.register(Interpreter.build({ element = (b * b2) % 21, body = b, body2 = b2, weapon = (b + b2) % 16, tempo = b % 4, variant = b * 17 + b2 }))
+					local r = Registry.register(Interpreter.build({
+						element = (b * b2) % 21,
+						body = b,
+						body2 = b2,
+						weapon = (b + b2) % 16,
+						tempo = b % 4,
+						variant = b * 17 + b2,
+					}))
 					checkRig(r.id)
 				end
 			end
@@ -212,7 +239,14 @@ end)
 describe("Prompt codes", function()
 	it("round-trips traits through 6 characters", function()
 		for k = 0, 400 do
-			local t = { element = k % 21, body = k % 26, body2 = (k * 7) % 26, weapon = k % 16, tempo = k % 4, variant = (k * 97) % 512 }
+			local t = {
+				element = k % 21,
+				body = k % 26,
+				body2 = (k * 7) % 26,
+				weapon = k % 16,
+				tempo = k % 4,
+				variant = (k * 97) % 512,
+			}
 			local code = Code.encode(t)
 			expect(#code).toBe(6)
 			expect(Code.decode(code)).toEqual(t)

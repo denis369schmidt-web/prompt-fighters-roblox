@@ -86,12 +86,12 @@ for _, entry in Roster do
 end
 
 function Fighters.get(id: string): Fighter
-	local fighter = Fighters.byId[id]
+	local fighter: Fighter? = Fighters.byId[id]
 	if fighter == nil and Fighters.resolver then
 		fighter = (Fighters.resolver :: (string) -> Fighter?)(id)
 	end
 	assert(fighter, `unknown fighter {id}`)
-	return fighter
+	return fighter :: Fighter
 end
 
 function Fighters.starters(): { Fighter }

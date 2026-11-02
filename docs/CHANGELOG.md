@@ -163,3 +163,21 @@
 
 - `export-scene.luau scene`: Arena mit frei platzierten, posierten Kämpfern für Key-Art.
 - `scripts/preview/compose-art.mjs`: Thumbnails (Type Any Fighter, 999%, 16 Fighters), Icon, TikTok-Cover und Quadrat-Post aus Renders plus Text.
+
+## 2026-11-02: Prompt-Kämpfer
+
+- `Shared/Prompt/Interpreter` (rein, getestet): Schlüsselwörter Deutsch und Englisch (20 Elemente, 25 Körpertypen,
+  15 Waffen, 3 Tempo-/Kraftwörter, Komposita wie „Sternendrache“), Statuspunkte (Budget 100, je 8–36), Kit eines
+  Roster-Kämpfers als Moveset, Signatur passend zum Element, generierter Look (Element-Palette + Seed-Variation,
+  Körperbau, Haare, Glühaugen bei magischen Elementen), Ausrüstung aus GearData + neuem `Visual/PromptGear`
+  (Hammer, Axt, Sense, Blaster, Zauberstab, Fäuste, Zauberhut, Umhänge, Heiligenschein, Hörner, Ohren, Schweif, Krone),
+  Name aus den erkannten Wörtern („EISGOLEM“), Titel („Eisiger Koloss“).
+- `Shared/Prompt/Code`: 6-stelliger Teile-Code (Crockford Base32) baut den Kämpfer ohne Text exakt nach.
+- `Shared/Prompt/Registry`: registriert Prompt-Kämpfer als `prompt_<CODE>`; `Fighters.get` löst solche Ids überall
+  (Server, Client, Simulation, RigBuilder, FighterView) aus dem Code auf.
+- Server `Prompt/PromptService`: `SubmitPrompt` (max. 120 Zeichen, TextService-Filter, „#“ = abgelehnt) und
+  `LoadPromptCode`; letzte 3 Prompt-Kämpfer im Profil (Profil v2). MatchService erlaubt Prompt-Kämpfer in der Auswahl.
+- Client `UI/PromptTerminal`: Eingabe, 3 Vorschlag-Chips, Code-Eingabe, Enthüllung (Lichtburst, drehender Kämpfer,
+  Name, Titel, Werte, Signatur, Code), „Mit diesem Kämpfer spielen“; `UI/PromptRow` zeigt die eigenen Prompt-Kämpfer
+  im Kämpfer-Picker.
+- `export-scene.luau prompts`: Vorschau für Prompt-Kämpfer.

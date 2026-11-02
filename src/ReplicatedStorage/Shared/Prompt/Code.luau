@@ -52,21 +52,24 @@ end)()
 assert(mulMod(MUL, INV) == 1, "Code: multiplier has no inverse")
 
 function Code.pack(t: Traits): number
-	assert(t.element >= 0 and t.element < 32 and t.body >= 0 and t.body < 32 and t.body2 >= 0 and t.body2 < 32)
-	assert(t.weapon >= 0 and t.weapon < 16 and t.tempo >= 0 and t.tempo < 4)
-	assert(t.variant >= 0 and t.variant < Code.VARIANTS)
+	assert(
+		t.element >= 0 and t.element < 32 and t.body >= 0 and t.body < 32 and t.body2 >= 0 and t.body2 < 32,
+		"Code: body index out of range"
+	)
+	assert(t.weapon >= 0 and t.weapon < 16 and t.tempo >= 0 and t.tempo < 4, "Code: weapon or tempo out of range")
+	assert(t.variant >= 0 and t.variant < Code.VARIANTS, "Code: variant out of range")
 	return ((((t.element * 32 + t.body) * 32 + t.body2) * 16 + t.weapon) * 4 + t.tempo) * Code.VARIANTS + t.variant
 end
 
 function Code.unpack(n: number): Traits
 	local variant = n % Code.VARIANTS
-	n //= Code.VARIANTS
+	n = n // Code.VARIANTS
 	local tempo = n % 4
-	n //= 4
+	n = n // 4
 	local weapon = n % 16
-	n //= 16
+	n = n // 16
 	local body2 = n % 32
-	n //= 32
+	n = n // 32
 	local body = n % 32
 	local element = n // 32
 	return { element = element, body = body, body2 = body2, weapon = weapon, tempo = tempo, variant = variant }
@@ -78,7 +81,7 @@ function Code.encode(t: Traits): string
 	for i = Code.LENGTH, 1, -1 do
 		local d = n % 32
 		chars[i] = string.sub(Code.ALPHABET, d + 1, d + 1)
-		n //= 32
+		n = n // 32
 	end
 	return table.concat(chars)
 end
@@ -105,10 +108,11 @@ end
 
 -- The traits behind a code (not yet checked against the keyword lists; Interpreter.fromCode does that).
 function Code.decode(input: string): Traits?
-	local code = Code.normalize(input)
-	if code == nil then
+	local normalized = Code.normalize(input)
+	if normalized == nil then
 		return nil
 	end
+	local code = normalized :: string
 	local n = 0
 	for i = 1, Code.LENGTH do
 		n = n * 32 + DIGIT[string.sub(code, i, i)]

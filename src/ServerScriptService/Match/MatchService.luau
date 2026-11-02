@@ -22,6 +22,7 @@ local PlayerData = require(script.Parent.Parent.Data.PlayerData)
 local RemoteHub = require(script.Parent.Parent.Net.RemoteHub)
 local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
+local PromptService = require(script.Parent.Parent.Prompt.PromptService)
 
 local LOBBY_SECONDS = 20 -- after the first fighter pick, time to vote and for friends to pick
 local READY_SECONDS = 5 -- once every player in the server has picked
@@ -522,7 +523,8 @@ function MatchService.start()
 	RemoteHub.on("SelectFighter", function(player, fighterId: string)
 		local profile = PlayerData.get(player)
 		local owned = if profile then Profile.owns(profile, fighterId) else Profile.owns(Profile.new(), fighterId)
-		if sliceAllowed(fighterId) and owned then
+		-- Roster fighters the player owns, or a prompt fighter they made or loaded (bots stay roster fighters).
+		if (sliceAllowed(fighterId) and owned) or PromptService.allows(player, fighterId) then
 			selections[player.UserId] = fighterId
 			if phase == "lobby" then
 				showLobbyStatus()
