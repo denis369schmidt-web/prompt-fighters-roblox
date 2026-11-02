@@ -395,7 +395,7 @@ function Hud.start()
 
 	local function updateGuide()
 		local inLobby = MatchState.phase == "lobby"
-		guide.Visible = inLobby
+		guide.Visible = inLobby and not picker.Visible -- the open picker says the same and needs the room on phones
 		if not inLobby then
 			return
 		end
