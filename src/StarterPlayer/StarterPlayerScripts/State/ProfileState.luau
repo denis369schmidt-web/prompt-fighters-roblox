@@ -20,6 +20,7 @@ export type View = {
 	message: string?,
 	bought: string?,
 	prompts: { string }?, -- share codes of the player's last prompt fighters, newest first
+	settings: { [string]: boolean }?, -- settings panel switches (Meta/Profile.Settings)
 }
 
 local ProfileState = {

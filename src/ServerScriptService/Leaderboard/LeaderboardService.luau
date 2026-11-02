@@ -25,6 +25,7 @@ local stores: { [string]: OrderedDataStore } = {}
 local storesBroken = false
 local entries: { [number]: { Leaderboards.Entry } } = {} -- board index -> last read rows
 local names: { [number]: string } = {}
+local fallback: { [number]: boolean } = {} -- board index -> rows come from this server (no store data)
 local lastWrite: { [number]: { [string]: { value: number, at: number } } } = {}
 local pending: { [number]: boolean } = {}
 local shown = 1
@@ -93,6 +94,7 @@ local function localEntries(boardId: string): { Leaderboards.Entry }
 			local value = Leaderboards.scores(profile, os.time())[boardId] or 0
 			if value > 0 then
 				table.insert(list, { userId = player.UserId, value = value })
+				names[player.UserId] = player.DisplayName
 			end
 		end
 	end
@@ -126,8 +128,11 @@ local function refresh(): boolean
 				allOk = false
 			end
 		end
-		if list == nil and (storesBroken or entries[k] == nil) then
+		if list then
+			fallback[k] = false
+		elseif storesBroken or entries[k] == nil or fallback[k] then
 			list = localEntries(board.id)
+			fallback[k] = true
 		end
 		if list then
 			entries[k] = list
@@ -145,7 +150,10 @@ end
 
 local function show()
 	local hasRows = {}
-	for k in Leaderboards.BOARDS do
+	for k, board in Leaderboards.BOARDS do
+		if fallback[k] then
+			entries[k] = localEntries(board.id) -- stays live between (backed-off) store reads
+		end
 		hasRows[k] = entries[k] ~= nil and #(entries[k] :: { Leaderboards.Entry }) > 0
 	end
 	shown = Leaderboards.nextBoard(shown, hasRows)
@@ -168,6 +176,7 @@ local function write(player: Player, force: boolean)
 	local none: { [string]: { value: number, at: number } } = {}
 	local due = Leaderboards.dueWrites(scores, if force then none else last, now)
 	pending[userId] = nil
+	local failed = false
 	for _, boardId in due do
 		local value = scores[boardId]
 		if force and last[boardId] and last[boardId].value == value then
@@ -181,13 +190,14 @@ local function write(player: Player, force: boolean)
 			if ok then
 				last[boardId] = { value = value, at = now }
 			else
-				pending[userId] = true
+				-- No retry loop (Studio without API access would warn forever): the next match end tries again.
+				failed = true
 				warn(`[Leaderboard] write failed for {userId}: {err}`)
 			end
 		end
 	end
 	-- Changed scores that are still throttled wait for the next check.
-	if #Leaderboards.dueWrites(scores, last, math.huge) > 0 and not force then
+	if not failed and not force and #Leaderboards.dueWrites(scores, last, math.huge) > 0 then
 		pending[userId] = true
 	end
 end

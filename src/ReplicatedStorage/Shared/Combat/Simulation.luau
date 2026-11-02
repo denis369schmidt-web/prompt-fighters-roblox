@@ -353,8 +353,7 @@ end
 
 function Sim.new(config: MatchConfig): Simulation
 	assert(#config.fighters >= 1 and #config.fighters <= Constants.MAX_PLAYERS, "1 to 4 fighters")
-	local stocks = config.stocks
-		or (if #config.fighters >= 3 then Constants.FFA_STOCKS else Constants.DEFAULT_STOCKS)
+	local stocks = config.stocks or (if #config.fighters >= 3 then Constants.FFA_STOCKS else Constants.DEFAULT_STOCKS)
 	local arenaId = config.arena or "neon_alley"
 	local self = setmetatable({
 		fighters = {},

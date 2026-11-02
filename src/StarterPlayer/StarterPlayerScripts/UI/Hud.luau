@@ -1,13 +1,14 @@
 --!strict
 -- Fight HUD (damage %, stocks, super bar, timer), center banners (3-2-1, LOS!, FINISHER, SUDDEN DEATH, winner),
--- the lobby fighter picker and touch buttons. Built in code for Phase 1; Phase 4 swaps in designed UI.
+-- the lobby fighter picker and arena vote. Built in code for Phase 1; Phase 4 swaps in designed UI.
+-- Touch controls: UI/TouchButtons. Lobby panels start below the Roblox top bar and leave the top-right shop slot
+-- free (UI/Layout).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Arenas = require(Shared:WaitForChild("Data"):WaitForChild("Arenas"))
@@ -15,10 +16,10 @@ local Constants = require(Shared:WaitForChild("Data"):WaitForChild("Constants"))
 local Fighters = require(Shared:WaitForChild("Data"):WaitForChild("Fighters"))
 local Visuals = require(Shared:WaitForChild("Data"):WaitForChild("Visuals"))
 local MatchRunner = require(Shared:WaitForChild("Combat"):WaitForChild("MatchRunner"))
-local InputController = require(script.Parent.Parent.Controllers.InputController)
 local MatchState = require(script.Parent.Parent.State.MatchState)
 local ProfileState = require(script.Parent.Parent.State.ProfileState)
 local RigBuilder = require(Shared:WaitForChild("Visual"):WaitForChild("RigBuilder"))
+local Layout = require(script.Parent.Layout)
 local PromptRow = require(script.Parent.PromptRow)
 
 local Hud = {}
@@ -293,6 +294,7 @@ function Hud.start()
 	voteLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	voteLayout.Parent = voteRow
 	local voteTitle = label(gui, "ARENA WÄHLEN", UDim2.fromOffset(220, 26), UDim2.new(1, -232, 0, 50))
+	voteTitle.Name = "VoteTitle"
 	local voteButtons: { TextButton } = {}
 	for k = 1, 3 do
 		local b = Instance.new("TextButton")
@@ -347,7 +349,7 @@ function Hud.start()
 	-- Lobby guide: three steps on the left that tick off as the player does them.
 	local guide = Instance.new("Frame")
 	guide.Size = UDim2.fromOffset(280, 132)
-	guide.Position = UDim2.fromOffset(12, 80)
+	guide.Position = UDim2.fromOffset(12, 80) -- placed below the profile bar by placePanels
 	guide.BackgroundColor3 = Color3.fromRGB(16, 14, 30)
 	guide.BackgroundTransparency = 0.25
 	guide.Parent = gui
@@ -361,6 +363,16 @@ function Hud.start()
 		step.TextXAlignment = Enum.TextXAlignment.Left
 		steps[k] = step
 	end
+
+	-- Below the top bar: left column = profile bar (MetaHud, 54) + settings row (UI/Settings, 44) + guide;
+	-- right column starts under the shop slot.
+	Layout.watch(function()
+		local top = Layout.top(uiScale.Scale)
+		guide.Position = UDim2.fromOffset(12, top + 54 + 8 + 44 + 8)
+		local right = top + Layout.SHOP_SLOT.height / uiScale.Scale
+		voteTitle.Position = UDim2.new(1, -232, 0, right)
+		voteRow.Position = UDim2.new(1, -12, 0, right + 30)
+	end)
 
 	local function onPad(): boolean
 		local character = Players.LocalPlayer.Character
@@ -417,69 +429,7 @@ function Hud.start()
 		end
 	end
 
-	-- Touch: big buttons on the right, a floating stick on the left half.
-	local touch = Instance.new("Frame")
-	touch.BackgroundTransparency = 1
-	touch.Size = UDim2.fromScale(1, 1)
-	touch.Visible = false
-	touch.Parent = gui
-	local function touchButton(text: string, action: string, position: UDim2, size: number)
-		local b = Instance.new("TextButton")
-		b.Size = UDim2.fromOffset(size, size)
-		b.Position = position
-		b.AnchorPoint = Vector2.new(0.5, 0.5)
-		b.BackgroundColor3 = Color3.fromRGB(30, 26, 60)
-		b.BackgroundTransparency = 0.25
-		b.Font = FONT
-		b.TextScaled = true
-		b.Text = text
-		b.TextColor3 = Color3.new(1, 1, 1)
-		b.Parent = touch
-		corner(b, size // 2)
-		b.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				(InputController.virtual :: any)[action] = true
-			end
-		end)
-		b.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.Touch then
-				(InputController.virtual :: any)[action] = false
-			end
-		end)
-	end
-	touchButton("ANGRIFF", "standard", UDim2.new(1, -150, 1, -110), 96)
-	touchButton("SPEZIAL", "special", UDim2.new(1, -60, 1, -200), 84)
-	touchButton("SPRUNG", "jump", UDim2.new(1, -60, 1, -90), 84)
-	touchButton("SCHILD", "block", UDim2.new(1, -250, 1, -70), 70)
-	touchButton("GREIFEN", "grab", UDim2.new(1, -150, 1, -220), 70)
-	touchButton("SMASH", "smash", UDim2.new(1, -250, 1, -170), 70)
-
-	local stickOrigin: Vector2? = nil
-	local stickInput: InputObject? = nil
-	UserInputService.TouchStarted:Connect(function(input, processed)
-		local viewport = workspace.CurrentCamera.ViewportSize
-		if not processed and input.Position.X < viewport.X * 0.45 and stickInput == nil then
-			stickInput = input
-			stickOrigin = Vector2.new(input.Position.X, input.Position.Y)
-		end
-	end)
-	UserInputService.TouchMoved:Connect(function(input)
-		local origin = stickOrigin
-		if input == stickInput and origin then
-			local delta = Vector2.new(input.Position.X, input.Position.Y) - origin
-			local v = InputController.virtual
-			v.move = if math.abs(delta.X) > 18 then math.clamp(delta.X / 70, -1, 1) else 0
-			v.up = delta.Y < -45
-			v.down = delta.Y > 45
-		end
-	end)
-	UserInputService.TouchEnded:Connect(function(input)
-		if input == stickInput then
-			stickInput, stickOrigin = nil, nil
-			local v = InputController.virtual
-			v.move, v.up, v.down = 0, false, false
-		end
-	end)
+	-- Touch controls live in UI/TouchButtons.
 
 	local function showBanner(text: string, sub: string?, seconds: number?)
 		banner.Text = text
@@ -513,7 +463,6 @@ function Hud.start()
 			setPickerOpen(inLobby and ((chosen == nil and not terminalOpen) or picker.Visible))
 			showVotes()
 			cardRow.Visible = event.phase == "match" -- the results podium (Cinematics) takes over after
-			touch.Visible = event.phase == "match" and MatchState.mySlot ~= nil and UserInputService.TouchEnabled
 			if event.phase == "match" and lastPhase ~= "match" then
 				buildCards() -- arena card, name plates and 3 · 2 · 1 come from Controllers/Cinematics
 			end
