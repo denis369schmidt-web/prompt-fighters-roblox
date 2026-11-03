@@ -109,3 +109,16 @@ Das ist großzügig und gut für die Retention, aber es senkt den Verkauf von �
 | Rettung zählt nicht für die Bestenliste | sonst Pay-to-Win in der Rangliste |
 | Boni addieren, Stimmen gedeckelt | Wirtschaft und Arenawahl bleiben fair |
 | Premium Payouts → Creator Rewards | Programm wurde von Roblox ersetzt |
+
+## Kosmetik-Shop (Stand 2026-11-03)
+
+Alles wird direkt gekauft, nichts ist zufällig, nichts verändert Kampfwerte (geprüft in `tests/Cosmetics.spec.luau`).
+
+| Art | Anzahl | Preis | Quelle |
+|---|---|---|---|
+| Kämpfer-Skins | 2 pro Launch-Kämpfer (32) | 400 / 700 / 1100 Münzen (selten / episch / legendär) oder Robux-Produkt „Skin direkt“ | `Data/Cosmetics.luau` |
+| Material-Skins | aus `RewardData` | Münzpreis oder Ruhmespfad-Stufe | `Data/Cosmetics.luau` |
+| KO-Effekte | 7 (classic gratis) | Münzen | `Cosmetics.KO_EFFECTS` |
+| Namensschilder | 4 | Münzen | `Cosmetics.PLATES` |
+
+Robux-Käufe laufen über `Shop/ShopService.luau` (`ProcessReceipt` idempotent über `profile.purchases`). Produkte mit `assetId = 0` zeigen „bald verfügbar“.
