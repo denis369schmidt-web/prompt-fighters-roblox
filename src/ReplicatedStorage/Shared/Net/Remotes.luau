@@ -36,7 +36,21 @@ local Remotes: { [string]: RemoteDef } = {
 	BossState = { kind = "event", direction = "toClient" },
 	-- Results screen: true = NOCHMAL (same fighters and arena), false = Zur Lobby.
 	VoteRematch = { kind = "event", direction = "toServer", perSecond = 2, args = { "boolean" } },
+	-- Shop (Server/Shop/ShopService). All answer { ok, message? }; the new state arrives through Profile.
+	-- BuyWithCoins(kind "fighter" | "cosmetic", id).
 	BuyWithCoins = { kind = "function", direction = "toServer", perSecond = 3, args = { "string", "string" } },
+	-- EquipCosmetic(kind "skin" | "ko" | "plate", fighterId or "", cosmetic id or "" for the default).
+	EquipCosmetic = {
+		kind = "function",
+		direction = "toServer",
+		perSecond = 4,
+		args = { "string", "string", "string" },
+	},
+	-- ShopPurchase(product or game pass id, choice: fighter/skin id for "pick one" products, else ""): opens
+	-- Roblox's purchase dialog after the server checked everything. Robux are only ever granted in ProcessReceipt.
+	ShopPurchase = { kind = "function", direction = "toServer", perSecond = 1, args = { "string", "string" } },
+	-- RedeemVoucher(kind "fighter" | "skin", id).
+	RedeemVoucher = { kind = "function", direction = "toServer", perSecond = 2, args = { "string", "string" } },
 	-- Prompt fighters: raw prompt text (filtered on the server before anything else) or a 6-character share code.
 	-- Both answer { ok, message?, fighter? } (Prompt/Interpreter Summary).
 	SubmitPrompt = { kind = "function", direction = "toServer", perSecond = 0.5, args = { "string" }, maxLength = 120 },

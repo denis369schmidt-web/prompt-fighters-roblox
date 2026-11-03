@@ -643,8 +643,9 @@ local function face(ctx: Ctx)
 	end
 end
 
-function RigBuilder.build(fighterId: string): Model
-	local look = Looks.get(fighterId)
+-- skinId (optional, Data/Cosmetics) recolors the fighter; sizes and parts stay the same.
+function RigBuilder.build(fighterId: string, skinId: string?): Model
+	local look = Looks.resolve(fighterId, skinId)
 	local s = look.scale
 	local b = Looks.BUILDS[look.build or "medium"] or Looks.BUILDS.medium
 	local function at(v: Vector3, name: string?): Vector3
@@ -747,6 +748,9 @@ function RigBuilder.build(fighterId: string): Model
 		end
 	end
 	model:SetAttribute("Glow", look.glow)
+	if look ~= Looks.get(fighterId) then
+		model:SetAttribute("Skin", skinId)
+	end
 	model:SetAttribute("StandHeight", RigBuilder.STAND_HEIGHT * s.height)
 	model:SetAttribute("PartCount", ctx.count)
 	return model

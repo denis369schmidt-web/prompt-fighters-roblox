@@ -1,6 +1,8 @@
 local Products = require(Shared.Data.Products)
 local Fighters = require(Shared.Data.Fighters)
 local RewardData = require(Shared.Data.Generated.RewardData)
+local Cosmetics = require(Shared.Data.Cosmetics)
+local Purchases = require(Shared.Meta.Purchases)
 
 local function contains(list, value)
 	for _, v in list do
@@ -38,6 +40,7 @@ describe("Products (fair monetization rules)", function()
 			coins = true,
 			skin = true,
 			fighterChoice = true,
+			skinChoice = true, -- the player's own pick, shown before the purchase
 			bundle = true,
 			seasonPremium = true,
 			seasonTiers = true,
@@ -85,6 +88,51 @@ describe("Products (fair monetization rules)", function()
 		for _, f in Fighters.list do
 			if f.unlock.kind == "coins" then
 				assert(Products.byId[`fighter_unlock_{f.unlock.price}`], `no Robux unlock for price {f.unlock.price}`)
+			end
+		end
+	end)
+
+	it("describes exactly what every product gives", function()
+		for _, list in { Products.GAME_PASSES, Products.DEV_PRODUCTS } do
+			for _, p in list do
+				local text = Purchases.describe(p)
+				assert(#text > 0, `{p.id} has no description`)
+				for _, grant in p.grants or {} do
+					if grant.kind == "coins" then
+						assert(text:find(Purchases.thousands(grant.amount), 1, true), `{p.id}: amount not shown`)
+					end
+				end
+				for _, perk in p.perks or {} do
+					assert(Products.PERK_TEXT[perk], `{p.id}: perk {perk} has no shop text`)
+				end
+			end
+		end
+	end)
+
+	it("never sells products without a Creator Dashboard id or with content still missing", function()
+		for _, list in { Products.GAME_PASSES, Products.DEV_PRODUCTS } do
+			for _, p in list do
+				local ok, why = Purchases.sellable(p)
+				if p.assetId == 0 or p.comingSoon then
+					expect(ok).toBe(false)
+					expect(why).toBe(Purchases.SOON)
+				end
+			end
+		end
+		expect((Purchases.sellable({ id = "x", name = "x", robux = 1, assetId = 5, grants = {} } :: any))).toBe(true)
+	end)
+
+	it("only grants skins from the cosmetics catalog", function()
+		for _, p in Products.DEV_PRODUCTS do
+			for _, grant in p.grants do
+				if grant.kind == "skin" then
+					assert(Cosmetics.skin(grant.id), `{p.id}: {grant.id} is not in Data/Cosmetics`)
+				end
+			end
+		end
+		for id, bundle in Products.BUNDLES do
+			for _, skin in bundle.skins or {} do
+				assert(Cosmetics.skin(skin), `bundle {id}: {skin} is not in Data/Cosmetics`)
 			end
 		end
 	end)

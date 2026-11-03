@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
 local GameFeel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Visual"):WaitForChild("GameFeel"))
+local Cosmetics = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Data"):WaitForChild("Cosmetics"))
 local Juice = require(script.Parent.Juice)
 
 local TUNING = GameFeel.TUNING
@@ -954,10 +955,244 @@ function Effects.shieldRipple(center: Vector3, hitPoint: Vector3, color: Color3,
 	Effects.ring(hitPoint, color, size * 0.7, 0.22, 0.3)
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- KO effect styles (Data/Cosmetics KO_EFFECTS): bought looks for the KO, display only. Each keeps the readable
+-- core (flash, shockwave, impact frame) and swaps the beam and particles for its own shapes.
+
+local flyerCount = 0
+local MAX_FLYERS = 90
+
+-- Small parts thrown from a point: confetti, cubes, petals. colorAt(k) picks each one's color.
+local function flyers(
+	position: Vector3,
+	direction: Vector3,
+	count: number,
+	colorAt: (k: number) -> Color3,
+	size: Vector3,
+	speed: number,
+	gravity: number,
+	life: number,
+	swirl: number?
+)
+	for k = 1, count do
+		if flyerCount >= MAX_FLYERS then
+			return
+		end
+		flyerCount += 1
+		local piece = neon(size, colorAt(k))
+		piece.CFrame = CFrame.new(position)
+		piece.Parent = container()
+		local velocity = (direction + Vector3.new((math.random() - 0.5) * 1.6, (math.random() - 0.3) * 1.4, 0)).Unit
+				* speed
+				* (0.5 + math.random() * 0.6)
+			+ Vector3.new(0, 0, (math.random() - 0.5) * 8)
+		local spin = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 16
+		local pos, rot = position, Vector3.zero
+		local lifetime = life * (0.7 + math.random() * 0.5)
+		local age = 0
+		local phase = math.random() * math.pi * 2
+		animate(function(dt)
+			age += dt
+			if age >= lifetime or piece.Parent == nil then
+				piece:Destroy()
+				flyerCount -= 1
+				return false
+			end
+			velocity += Vector3.new(0, -gravity, 0) * dt
+			velocity *= 1 - math.min(1, 2.5 * dt)
+			pos += velocity * dt
+			if swirl then
+				pos += Vector3.new(math.cos(age * 6 + phase), math.sin(age * 6 + phase), 0) * swirl * dt
+			end
+			rot += spin * dt
+			local f = age / lifetime
+			piece.CFrame = CFrame.new(pos) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+			piece.Transparency = math.max(0, f * 1.4 - 0.4)
+			return true
+		end)
+	end
+end
+
+-- A thin neon segment from a to b that fades out.
+local function segment(a: Vector3, b: Vector3, color: Color3, width: number, duration: number, delay: number?)
+	local length = (b - a).Magnitude
+	if length < 1e-3 then
+		return
+	end
+	local part = neon(Vector3.new(width, width, length), color)
+	part.CFrame = CFrame.lookAt((a + b) / 2, b)
+	part.Transparency = 1
+	local age = -(delay or 0)
+	part.Parent = container()
+	animate(function(dt)
+		age += dt
+		if age < 0 then
+			return true
+		end
+		local f = age / duration
+		if f >= 1 or part.Parent == nil then
+			part:Destroy()
+			return false
+		end
+		part.Transparency = f ^ 1.5
+		part.Size = Vector3.new(width * (1 - f * 0.7), width * (1 - f * 0.7), length)
+		return true
+	end)
+end
+
+local CONFETTI = {
+	Color3.fromRGB(255, 77, 94),
+	Color3.fromRGB(63, 169, 255),
+	Color3.fromRGB(255, 210, 63),
+	Color3.fromRGB(76, 224, 138),
+	Color3.fromRGB(255, 95, 162),
+	Color3.fromRGB(255, 255, 255),
+}
+
+local KO_STYLES: { [string]: (Vector3, Vector3, Color3, Color3, number) -> () } = {
+	confetti = function(position, dir, color, _accent, big)
+		Effects.flashBall(position, Color3.new(1, 1, 1), 30 * big, 0.4)
+		Effects.shockwave(position, color, 55 * big, 0.5)
+		flyers(position, dir, math.floor(60 * big), function(k)
+			return CONFETTI[k % #CONFETTI + 1]
+		end, Vector3.new(0.9, 0.9, 0.12), 85, 40, 1.3, 8)
+		Effects.impactStar(position + dir * 3, color, 28 * big, 0.4)
+	end,
+	pixel = function(position, dir, color, accent, big)
+		local cube = LOOK.koBeamWidth * 0.8
+		for k = 0, 13 do
+			local at = position + dir * (6 + k * 9)
+			local size = cube * (1 - k / 20)
+			local block = neon(Vector3.one * size, if k % 2 == 0 then color else color:Lerp(accent, 0.5))
+			block.CFrame = CFrame.lookAt(at, at + dir)
+			block.Parent = container()
+			local age = -k * 0.025
+			animate(function(dt)
+				age += dt
+				local f = math.max(0, age) / 0.55
+				if f >= 1 or block.Parent == nil then
+					block:Destroy()
+					return false
+				end
+				local s = size * (1 - f) ^ 0.6
+				block.Size = Vector3.one * math.max(0.05, s)
+				block.Transparency = f
+				return true
+			end)
+		end
+		flyers(position, dir, math.floor(40 * big), function(k)
+			return if k % 3 == 0 then Color3.new(1, 1, 1) else color
+		end, Vector3.one * 1.2, 70, 60, 0.8)
+		Effects.flashBall(position, color, 32 * big, 0.45)
+		Effects.shockwave(position, color, 60 * big, 0.5)
+	end,
+	nova = function(position, _dir, color, accent, big)
+		Effects.flashBall(position, Color3.new(1, 1, 1), 22 * big, 0.3)
+		Effects.flashBall(position, color, 55 * big, 0.75)
+		for k = 0, 2 do
+			task.delay(k * 0.11, function()
+				Effects.ring(position, if k == 1 then accent else color, (55 + k * 28) * big, 0.55, 0.5)
+			end)
+		end
+		Effects.impactStar(position, Color3.new(1, 1, 1), 46 * big, 0.55)
+		Effects.sparks(position, color, 50, 85)
+	end,
+	thunder = function(position, dir, color, accent, big)
+		local side = Vector3.new(-dir.Y, dir.X, 0)
+		for bolt = 1, 3 do
+			local at = position
+			local heading = (dir + side * (bolt - 2) * 0.35).Unit
+			for k = 1, 9 do
+				local nextAt = at + heading * 10 + side * (math.random() - 0.5) * 9
+				segment(at, nextAt, if bolt == 2 then Color3.new(1, 1, 1) else color, 1.4, 0.45, k * 0.012)
+				at = nextAt
+			end
+		end
+		Effects.flashBall(position, accent, 40 * big, 0.4)
+		Effects.shockwave(position, color, 60 * big, 0.45)
+		Effects.sparksToward(position, dir, color, 45, 100)
+		Effects.impactStar(position + dir * 3, color, 32 * big, 0.35)
+	end,
+	petals = function(position, dir, color, accent, big)
+		segment(position, position + dir * LOOK.koBeamLength * 0.8, color, LOOK.koBeamWidth * 0.8, 0.6)
+		flyers(position, dir, math.floor(55 * big), function(k)
+			return if k % 4 == 0 then accent else color
+		end, Vector3.new(1.1, 0.14, 0.7), 60, 6, 1.6, 22)
+		Effects.flashBall(position, color, 38 * big, 0.55)
+		Effects.ring(position, accent, 50 * big, 0.6, 0.3)
+	end,
+	void = function(position, dir, color, accent, big)
+		local hole = Instance.new("Part")
+		bare(hole)
+		hole.Shape = Enum.PartType.Ball
+		hole.Material = Enum.Material.SmoothPlastic
+		hole.Color = accent
+		hole.Size = Vector3.one * 2
+		hole.Position = position
+		hole.Parent = container()
+		local rim = neon(Vector3.new(0.4, 60 * big, 60 * big), color)
+		rim.Shape = Enum.PartType.Cylinder
+		rim.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(90), 0)
+		rim.Transparency = 0.3
+		rim.Parent = container()
+		local age = 0
+		local pull = 0.35
+		animate(function(dt)
+			age += dt
+			local f = age / pull
+			if f >= 1 or hole.Parent == nil then
+				hole:Destroy()
+				rim:Destroy()
+				Effects.flashBall(position, color, 60 * big, 0.6)
+				Effects.shockwave(position, color, 80 * big, 0.55)
+				Effects.sparks(position, color, 50, 90)
+				Effects.impactStar(position, Color3.new(1, 1, 1), 40 * big, 0.45)
+				return false
+			end
+			-- The hole swells while the rim collapses into it.
+			hole.Size = Vector3.one * (2 + 12 * big * math.sin(f * math.pi * 0.5))
+			local r = 60 * big * (1 - f) + 4
+			rim.Size = Vector3.new(0.4, r, r)
+			return true
+		end)
+		Effects.sparksToward(position + dir * 20, -dir, color, 30, 60)
+	end,
+}
+
+-- Plays a bought KO style; returns false for the classic look (or an unknown id).
+local function styledKnockout(
+	effectId: string?,
+	position: Vector3,
+	dir: Vector3,
+	color: Color3,
+	decisive: boolean?
+): boolean
+	local item = if effectId then Cosmetics.get(effectId) else nil
+	if item == nil or item.kind ~= "ko" then
+		return false
+	end
+	local ko = item :: Cosmetics.KoEffect
+	local play = KO_STYLES[ko.style]
+	if play == nil then
+		return false
+	end
+	local main = if ko.color then Color3.fromHex(ko.color) else color
+	local accent = if ko.accent then Color3.fromHex(ko.accent) else Color3.new(1, 1, 1)
+	play(position, dir, main, accent, if decisive then 1.35 else 1)
+	Effects.speedLines(position + dir * 10, main, 1)
+	Effects.impactFrame(1, if decisive then 0.12 else 0.07)
+	Effects.screenFlash(main, if decisive then 0.45 else 0.28, 1)
+	return true
+end
+
 -- KO: a beam from the blast point back across the stage, a star flash, shockwaves, sparks, speed lines and a
--- screen flash. direction points from the blast point toward the stage center.
-function Effects.knockout(position: Vector3, color: Color3, direction: Vector3?, decisive: boolean?)
+-- screen flash. direction points from the blast point toward the stage center. effectId: the scorer's equipped
+-- KO effect (Data/Cosmetics); nil or "ko_classic" is this classic look.
+function Effects.knockout(position: Vector3, color: Color3, direction: Vector3?, decisive: boolean?, effectId: string?)
 	local dir = if direction and direction.Magnitude > 1e-3 then direction.Unit else Vector3.yAxis
+	if styledKnockout(effectId, position, dir, color, decisive) then
+		return
+	end
 	local length = LOOK.koBeamLength
 	local mid = position + dir * (length / 2)
 	local beamCf = CFrame.lookAt(mid, mid + dir)

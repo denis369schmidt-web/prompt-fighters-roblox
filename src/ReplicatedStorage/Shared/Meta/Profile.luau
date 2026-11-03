@@ -1,8 +1,10 @@
 --!strict
 -- A player's saved progress and the pure rules that change it: match rewards (XP, coins, grade, level ups,
--- free fighter unlocks every few wins), the 7-day login calendar and buying fighters with coins.
+-- free fighter unlocks every few wins), the 7-day login calendar, buying fighters and cosmetics with coins and
+-- equipping cosmetics (Data/Cosmetics). Robux purchases are applied by Meta/Purchases.
 -- No Roblox services here: the server (Server/Data/PlayerData) loads and saves, tests call these directly.
 
+local Cosmetics = require(script.Parent.Parent.Data.Cosmetics)
 local Constants = require(script.Parent.Parent.Data.Constants)
 local Fighters = require(script.Parent.Parent.Data.Fighters)
 local PromptCode = require(script.Parent.Parent.Prompt.Code)
@@ -22,6 +24,17 @@ export type Profile = {
 	loginDay: number, -- day number (days since 1970) of the last login reward
 	loginStreak: number, -- 1..7, day of the login calendar reached
 	promptFighters: { string }, -- share codes of the last prompt fighters (Prompt/Code), newest first
+	-- v3: shop
+	cosmetics: { [string]: boolean }, -- owned cosmetic ids (Data/Cosmetics)
+	equippedSkins: { [string]: string }, -- fighter id -> skin id
+	equippedKo: string, -- KO effect id ("" = Cosmetics.DEFAULT_KO)
+	equippedPlate: string, -- name plate id ("" = none, the level title shows)
+	purchases: { [string]: number }, -- Robux receipt PurchaseId -> os.time() when granted (idempotency)
+	vouchers: { [string]: number }, -- "fighter:<maxPrice>" / "skin:<maxPrice>" -> count (choice products)
+	choices: { [string]: string }, -- product id -> what the player picked before the purchase dialog
+	items: { [string]: boolean }, -- "arena:<id>" / "weapon:<id>" from bundles, for systems that come later
+	entitlements: { [string]: number }, -- bought counts: "once:<product>", seasonPremium, seasonTiers, ...
+	firstSeen: number, -- os.time() of the first join (starter pack window)
 	weekKey: number, -- week (Meta/Leaderboards.weekKey) that weekWins counts
 	weekWins: number, -- wins in that week (weekly leaderboard)
 	groupBonus: boolean, -- the one-time group-join coin bonus was paid
@@ -60,8 +73,11 @@ export type MatchReward = {
 
 local Profile = {}
 
--- v2: promptFighters
-Profile.VERSION = 2
+-- v2: promptFighters. v3: cosmetics, equipped*, purchases, vouchers, choices, items, entitlements, firstSeen
+-- (shop) and weekKey, weekWins, groupBonus, settings (leaderboards, settings panel).
+Profile.VERSION = 3
+-- Receipt ids kept for idempotency (oldest dropped first). Roblox retries only receipts we never granted.
+Profile.MAX_PURCHASES = 200
 Profile.START_COINS = 150
 Profile.PROMPT_HISTORY = 3
 
@@ -86,11 +102,36 @@ function Profile.new(): Profile
 		challengeDay = 0,
 		challengeStreak = 0,
 		bossWins = {},
+		cosmetics = {},
+		equippedSkins = {},
+		equippedKo = "",
+		equippedPlate = "",
+		purchases = {},
+		vouchers = {},
+		choices = {},
+		items = {},
+		entitlements = {},
+		firstSeen = 0,
 		weekKey = 0,
 		weekWins = 0,
 		groupBonus = false,
 		settings = Profile.defaultSettings(),
 	}
+end
+
+-- Keeps only entries with the right key and value types (and, if given, keys that pass `keep`).
+local function cleanMap(map: { [any]: any }, valueType: string, keep: ((key: string, value: any) -> boolean)?): any
+	local out = {}
+	for k, v in map do
+		if type(k) == "string" and type(v) == valueType and (keep == nil or keep(k, v)) then
+			out[k] = v
+		end
+	end
+	return out
+end
+
+local function finite(_key: string, v: number): boolean
+	return v == v and v > -math.huge and v < math.huge
 end
 
 -- Fills fields missing in an older or damaged save with defaults and drops wrong types.
@@ -122,6 +163,35 @@ function Profile.migrate(data: any): Profile
 	end
 	fresh.bossWins = wins
 	fresh.challengeStreak = math.clamp(math.floor(fresh.challengeStreak), 0, 7)
+	-- Shop fields: unknown cosmetics and broken entries are dropped; equipped items must still be owned.
+	fresh.cosmetics = cleanMap(fresh.cosmetics, "boolean", function(id, v)
+		return v and Cosmetics.byId[id] ~= nil
+	end)
+	fresh.purchases = cleanMap(fresh.purchases, "number", finite)
+	fresh.vouchers = cleanMap(fresh.vouchers, "number", function(_k, v)
+		return finite(_k, v) and v >= 1
+	end)
+	fresh.choices = cleanMap(fresh.choices, "string")
+	fresh.items = cleanMap(fresh.items, "boolean")
+	fresh.entitlements = cleanMap(fresh.entitlements, "number", finite)
+	if fresh.firstSeen ~= fresh.firstSeen or fresh.firstSeen < 0 then
+		fresh.firstSeen = 0
+	end
+	local skins = cleanMap(fresh.equippedSkins, "string")
+	fresh.equippedSkins = {}
+	for fighterId, skinId in skins do
+		local skin = Cosmetics.skin(skinId)
+		if skin and Cosmetics.fits(skin, fighterId) and fresh.cosmetics[skinId] then
+			fresh.equippedSkins[fighterId] = skinId
+		end
+	end
+	if not Profile.ownsCosmetic(fresh, fresh.equippedKo) or (Cosmetics.byId[fresh.equippedKo] :: any).kind ~= "ko" then
+		fresh.equippedKo = ""
+	end
+	local plate = Cosmetics.byId[fresh.equippedPlate]
+	if plate == nil or plate.kind ~= "plate" or not fresh.cosmetics[fresh.equippedPlate] then
+		fresh.equippedPlate = ""
+	end
 	-- Settings: known keys with the right type survive, the rest falls back to the defaults.
 	local settings = Profile.defaultSettings()
 	local savedSettings = if type(data.settings) == "table" then data.settings else {}
@@ -136,6 +206,96 @@ function Profile.migrate(data: any): Profile
 	fresh.level = math.max(1, math.floor(fresh.level))
 	fresh.coins = math.max(0, math.floor(fresh.coins))
 	return fresh
+end
+
+-- Default cosmetics (the classic KO effect) belong to everyone; pass-bound ones need `passes[pass]`.
+function Profile.ownsCosmetic(profile: Profile, id: string, passes: { [string]: boolean }?): boolean
+	local item = Cosmetics.byId[id]
+	if item == nil then
+		return false
+	end
+	if item.kind == "ko" and id == Cosmetics.DEFAULT_KO then
+		return true
+	end
+	local pass = (item :: any).pass
+	if pass and passes and passes[pass] then
+		return true
+	end
+	return profile.cosmetics[id] == true
+end
+
+-- Buys a cosmetic with coins. Returns ok and, if not ok, a reason for the player.
+function Profile.buyCosmetic(profile: Profile, id: string): (boolean, string?)
+	local item = Cosmetics.byId[id]
+	if item == nil then
+		return false, "Nicht im Shop"
+	end
+	if Profile.ownsCosmetic(profile, id) then
+		return false, "Hast du schon"
+	end
+	if item.coins == nil or (item.coins :: number) <= 0 then
+		return false, "Nicht für Münzen"
+	end
+	local price = item.coins :: number
+	if profile.coins < price then
+		return false, `Dir fehlen {price - profile.coins} Münzen`
+	end
+	profile.coins -= price
+	profile.cosmetics[id] = true
+	return true, nil
+end
+
+-- Equips a cosmetic. kind: "skin" (for fighterId), "ko" or "plate"; id "" goes back to the default.
+function Profile.equip(
+	profile: Profile,
+	kind: string,
+	fighterId: string,
+	id: string,
+	passes: { [string]: boolean }?
+): (boolean, string?)
+	if kind == "skin" then
+		if Fighters.byId[fighterId] == nil or table.find(Visuals.SLICE_FIGHTERS, fighterId) == nil then
+			return false, "Unbekannter Kämpfer"
+		end
+		if id == "" then
+			profile.equippedSkins[fighterId] = nil
+			return true, nil
+		end
+		local skin = Cosmetics.skin(id)
+		if skin == nil or not Cosmetics.fits(skin, fighterId) then
+			return false, "Passt nicht zu diesem Kämpfer"
+		end
+		if not Profile.ownsCosmetic(profile, id, passes) then
+			return false, "Noch nicht gekauft"
+		end
+		profile.equippedSkins[fighterId] = id
+		return true, nil
+	elseif kind == "ko" or kind == "plate" then
+		local item = Cosmetics.byId[id]
+		if id ~= "" and (item == nil or item.kind ~= kind) then
+			return false, "Unbekannt"
+		end
+		if id ~= "" and not Profile.ownsCosmetic(profile, id, passes) then
+			return false, "Noch nicht gekauft"
+		end
+		if kind == "ko" then
+			profile.equippedKo = if id == Cosmetics.DEFAULT_KO then "" else id
+		else
+			profile.equippedPlate = id
+		end
+		return true, nil
+	end
+	return false, "Unbekannt"
+end
+
+-- Equipped skin of a fighter (nil = normal look) and equipped KO effect (nil = classic), for match setup.
+function Profile.equippedSkin(profile: Profile, fighterId: string): string?
+	local id = profile.equippedSkins[fighterId]
+	return if id and profile.cosmetics[id] then id else nil
+end
+
+function Profile.equippedKoEffect(profile: Profile): string?
+	return if profile.equippedKo ~= "" then profile.equippedKo else nil
 end
 
 -- Counts a win for the weekly leaderboard; a new week starts again at 0.
@@ -259,11 +419,19 @@ function Profile.addXp(profile: Profile, amount: number)
 	end
 end
 
--- Applies one finished match to the profile and returns what the player got.
-function Profile.applyMatch(profile: Profile, fighterId: string, stats: MatchStats, bonuses: { number }?): MatchReward
+-- Applies one finished match to the profile and returns what the player got. bonuses: additive coin bonuses
+-- (game passes), xpBonus: additive XP bonus (Doppelte XP = 1); coins are always based on the XP before it.
+function Profile.applyMatch(
+	profile: Profile,
+	fighterId: string,
+	stats: MatchStats,
+	bonuses: { number }?,
+	xpBonus: number?
+): MatchReward
 	local grade, mult = Progression.grade(Profile.points(stats))
-	local xp = Profile.matchXp(stats)
-	local coins = Progression.matchCoins(xp / 4, mult, bonuses or {})
+	local baseXp = Profile.matchXp(stats)
+	local xp = math.floor(baseXp * (1 + (xpBonus or 0)) + 0.5)
+	local coins = Progression.matchCoins(baseXp / 4, mult, bonuses or {})
 	local before = profile.level
 	Profile.addXp(profile, xp)
 	profile.coins += coins
@@ -318,12 +486,25 @@ function Profile.view(profile: Profile): { [string]: any }
 			table.insert(owned, id)
 		end
 	end
+	local cosmetics = {}
+	for id in profile.cosmetics do
+		table.insert(cosmetics, id)
+	end
+	table.sort(cosmetics)
+	local plate = Cosmetics.byId[profile.equippedPlate]
 	return {
 		coins = profile.coins,
 		level = profile.level,
 		xp = profile.xp,
 		xpNext = Progression.xpToNext(profile.level),
-		title = Progression.titleForLevel(profile.level),
+		-- An equipped name plate replaces the level title.
+		title = if plate and plate.kind == "plate" then plate.title else Progression.titleForLevel(profile.level),
+		frame = if plate and plate.kind == "plate" then plate.frame else nil,
+		cosmetics = cosmetics,
+		equippedSkins = table.clone(profile.equippedSkins),
+		equippedKo = if profile.equippedKo ~= "" then profile.equippedKo else Cosmetics.DEFAULT_KO,
+		equippedPlate = profile.equippedPlate,
+		vouchers = table.clone(profile.vouchers),
 		wins = profile.wins,
 		owned = owned,
 		winsToUnlock = Progression.WINS_PER_FIGHTER_UNLOCK - profile.wins % Progression.WINS_PER_FIGHTER_UNLOCK,

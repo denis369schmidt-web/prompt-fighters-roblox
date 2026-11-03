@@ -31,6 +31,7 @@ local ArenaBuilder = require(script.Parent.Parent.World.ArenaBuilder)
 local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 local ModeBoard = require(script.Parent.Parent.World.ModeBoard)
 local PromptService = require(script.Parent.Parent.Prompt.PromptService)
+local ShopService = require(script.Parent.Parent.Shop.ShopService)
 local Analytics = require(script.Parent.Parent.Analytics.Analytics)
 local LeaderboardService = require(script.Parent.Parent.Leaderboard.LeaderboardService)
 
@@ -207,12 +208,16 @@ local function broadcastState()
 					for i, slot in current.slots do
 						local def = Fighters.get(slot.fighterId)
 						local player = if slot.userId then Players:GetPlayerByUserId(slot.userId) else nil
+						-- Equipped cosmetics, display only (Shop/ShopService); the simulation never sees them.
+						local profile = if player then PlayerData.get(player) else nil
 						out[i] = {
 							fighterId = slot.fighterId,
 							name = def.name,
 							element = def.element,
 							userId = slot.userId,
 							player = if player then player.DisplayName else nil,
+							skin = if profile then Profile.equippedSkin(profile, slot.fighterId) else nil,
+							ko = if profile then Profile.equippedKoEffect(profile) else nil,
 						}
 					end
 					return out
@@ -597,7 +602,8 @@ local function rewardPlayers(current: MatchRunner.Runner)
 			}
 			local extra: { [string]: any } = {}
 			PlayerData.update(player, function(profile)
-				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats)
+				local coinBonuses, xpBonus = ShopService.matchBonuses(player)
+				extra.reward = Profile.applyMatch(profile, slot.fighterId, stats, coinBonuses, xpBonus)
 				dailyBonus(profile, current, i, extra)
 			end, extra)
 		end

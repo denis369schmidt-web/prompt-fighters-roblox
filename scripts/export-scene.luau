@@ -6,7 +6,8 @@
 --   lune run scripts/export-scene.luau arena <arenaId> out.json
 --   lune run scripts/export-scene.luau lobby out.json
 --   lune run scripts/export-scene.luau fighters out.json   (launch roster in a row, for portraits)
---   lune run scripts/export-scene.luau portrait ninja,golem 30 out.json   (close-up set, turned 30 degrees)
+--   lune run scripts/export-scene.luau portrait ninja,golem 30 out.json   (close-up set, turned 30 degrees;
+--     "ninja@ninja_jade" = with a skin from Data/Cosmetics)
 --   lune run scripts/export-scene.luau prompts "Eisgolem mit Hammer;lava ninja" 20 out.json   (prompt fighters)
 --   lune run scripts/export-scene.luau poses spec.json out.json
 --     (pose sheet: spec is a JSON list of { fighter, ...PoseInput fields }; rigs are posed with Visual/Pose and
@@ -161,8 +162,10 @@ elseif kind == "portrait" then
 	local ids = string.split(process.args[2], ",")
 	local yaw = math.rad(tonumber(process.args[3]) or 0)
 	root = roblox.Instance.new("Model")
-	for i, id in ids do
-		local rig = RigBuilder.build(id)
+	for i, entry in ids do
+		-- "ninja@ninja_jade" builds the fighter with a skin (Data/Cosmetics).
+		local id, skin = string.match(entry, "^([^@]+)@?(.*)$")
+		local rig = RigBuilder.build(id :: string, if skin ~= "" then skin else nil)
 		local x = ((#ids + 1) / 2 - i) * 5.5
 		for _, d in rig:GetDescendants() do
 			if d:IsA("BasePart") then

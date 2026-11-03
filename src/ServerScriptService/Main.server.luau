@@ -12,6 +12,7 @@ local Products = require(Data.Products)
 local MatchService = require(script.Parent.Match.MatchService)
 local PlayerData = require(script.Parent.Data.PlayerData)
 local PromptService = require(script.Parent.Prompt.PromptService)
+local ShopService = require(script.Parent.Shop.ShopService)
 local Analytics = require(script.Parent.Analytics.Analytics)
 local LeaderboardService = require(script.Parent.Leaderboard.LeaderboardService)
 
@@ -24,4 +25,5 @@ Analytics.start() -- before PlayerData, so the first join is logged
 PlayerData.start()
 MatchService.start()
 PromptService.start()
+ShopService.start()
 LeaderboardService.start()
